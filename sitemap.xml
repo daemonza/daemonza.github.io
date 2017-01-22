@@ -2,18 +2,14 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>http://daemonza.github.io/</loc>
+    <loc>http://127.0.0.1313/</loc>
     <lastmod>2017-01-15T10:09:57+01:00</lastmod>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>http://daemonza.github.io/2017/01/15/kubernetes-on-aws/</loc>
+    <loc>http://127.0.0.1313/2017/01/15/kubernetes-on-aws/</loc>
     <lastmod>2017-01-15T10:09:57+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>http://daemonza.github.io/about/</loc>
   </url>
   
 </urlset>
