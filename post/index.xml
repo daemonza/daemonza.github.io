@@ -30,7 +30,7 @@ better for me. Also there is something to be said for using a tool developed and
 &lt;p&gt;There is also kubeadm (&lt;a href=&#34;https://kubernetes.io/docs/getting-started-guides/kubeadm/&#34;&gt;https://kubernetes.io/docs/getting-started-guides/kubeadm/&lt;/a&gt;), however it&amp;rsquo;s currently in alpha. Have not
 used it myself before, but it&amp;rsquo;s defiantly something I am keeping a eye on.&lt;/p&gt;
 
-&lt;h4 id=&#34;installing-kops&#34;&gt;Installing kops&lt;/h4&gt;
+&lt;h4 id=&#34;installing-kops:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Installing kops&lt;/h4&gt;
 
 &lt;p&gt;I use macOS so from here all instructions will be based on the assumption it&amp;rsquo;s being executed on macOS. It should
 however work on Linux or at least be easily adapted to work on Linux.&lt;/p&gt;
@@ -56,7 +56,7 @@ make
 &lt;pre&gt;&lt;code&gt;kops version
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;setup&#34;&gt;Setup&lt;/h4&gt;
+&lt;h4 id=&#34;setup:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Setup&lt;/h4&gt;
 
 &lt;p&gt;It&amp;rsquo;s strickly not needed to install awscli, but it&amp;rsquo;s extremely useful when working with
 Kubernetes clusters on Amazon;&lt;/p&gt;
@@ -96,7 +96,7 @@ EXPORT KUBECONFIG=&amp;quot;~/stacks/dev.daemonza.io/kubeconfig&amp;quot;
 ssh-keygen -t rsa # save the keys in the credentials directory
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;create-cluster&#34;&gt;Create cluster&lt;/h4&gt;
+&lt;h4 id=&#34;create-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Create cluster&lt;/h4&gt;
 
 &lt;p&gt;First thing is to decided on the DNS setup for yout cluster. It&amp;rsquo;s standard practice to use subdomains
 to identify a cluster. E.g. dev.daemonza., qa.daemonza.io, prod.daemonza.io for the develop, QA and
@@ -186,7 +186,7 @@ at your cluster using the UI.&lt;/p&gt;
 &lt;p&gt;You can now run kubectl proxy and access your cluster at
 &lt;a href=&#34;http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all&#34;&gt;http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all&lt;/a&gt;&lt;/p&gt;
 
-&lt;h4 id=&#34;list-clusters&#34;&gt;List clusters&lt;/h4&gt;
+&lt;h4 id=&#34;list-clusters:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;List clusters&lt;/h4&gt;
 
 &lt;p&gt;Kops makes it easy to manage multiple stacks. To get a list of all your current stacks
 run the following :&lt;/p&gt;
@@ -222,7 +222,7 @@ master-eu-west-1a	Master	t2.medium	1	1	eu-west-1a
 nodes			Node	m3.xlarge	2	2	eu-west-1a,eu-west-1b
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;modify-cluster&#34;&gt;Modify cluster&lt;/h4&gt;
+&lt;h4 id=&#34;modify-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Modify cluster&lt;/h4&gt;
 
 &lt;p&gt;Kops makes it easy, and relative safe to modify a Kubernetes cluster. Continuing from our example above in the
 cluster listing. Let&amp;rsquo;s modify our cluster to have three m3.xlarge worker nodes instead of just two, and
@@ -293,7 +293,7 @@ kops rolling-update cluster --yes
 
 &lt;p&gt;Sit back and wait for your cluster changes to take affect.&lt;/p&gt;
 
-&lt;h4 id=&#34;remove-cluster&#34;&gt;Remove cluster&lt;/h4&gt;
+&lt;h4 id=&#34;remove-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Remove cluster&lt;/h4&gt;
 
 &lt;p&gt;Now to remove the cluster that you just created run&lt;/p&gt;
 
@@ -318,7 +318,7 @@ Must specify --yes to delete
 &lt;p&gt;Then if your a 100% sure you want to remove the cluster, NOTE, there is no coming back
 from this, add &amp;ndash;yes to the the command&lt;/p&gt;
 
-&lt;h4 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h4&gt;
+&lt;h4 id=&#34;conclusion:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Conclusion&lt;/h4&gt;
 
 &lt;p&gt;That&amp;rsquo;s it folks! Kops is a powerfull tool to work with Kubernetes and we have barely scratch the
 surface in this article. For more information, of what else you can do with Kops head over to
