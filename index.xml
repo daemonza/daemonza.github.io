@@ -9,7 +9,403 @@
     <managingEditor>werner.gillmer@gmail.com (Werner Gillmer)</managingEditor>
     <webMaster>werner.gillmer@gmail.com (Werner Gillmer)</webMaster>
     <copyright>(c) 2017 Werner Gillmer</copyright>
+    <lastBuildDate>Sun, 15 Jan 2017 10:09:57 +0100</lastBuildDate>
     <atom:link href="https://daemonza.github.io/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Kubernetes on AWS</title>
+      <link>https://daemonza.github.io/2017/01/15/kubernetes-on-aws/</link>
+      <pubDate>Sun, 15 Jan 2017 10:09:57 +0100</pubDate>
+      <author>werner.gillmer@gmail.com (Werner Gillmer)</author>
+      <guid>https://daemonza.github.io/2017/01/15/kubernetes-on-aws/</guid>
+      <description>
+
+&lt;p&gt;In this post I will be explaining how I setup Kubernetes clusters on Amazon.&lt;/p&gt;
+
+&lt;p&gt;I use kops (&lt;a href=&#34;https://github.com/kubernetes/kops&#34;&gt;https://github.com/kubernetes/kops&lt;/a&gt;) to setup and manage my Kubernetes clusters. For my day job, I create
+multiple Kubernetes stacks often on Amazon and nothing, so far, comes close to how well kops works for me. I briefly
+flirted with kube-aws  (&lt;a href=&#34;https://github.com/coreos/kube-aws&#34;&gt;https://github.com/coreos/kube-aws&lt;/a&gt;) from CoreOS, and while it&amp;rsquo;s a good tool, Kops just works
+better for me. Also there is something to be said for using a tool developed and used by the same guys that develop Kubernetes.&lt;/p&gt;
+
+&lt;p&gt;There is also kubeadm (&lt;a href=&#34;https://kubernetes.io/docs/getting-started-guides/kubeadm/&#34;&gt;https://kubernetes.io/docs/getting-started-guides/kubeadm/&lt;/a&gt;), however it&amp;rsquo;s currently in alpha. Have not
+used it myself before, but it&amp;rsquo;s defiantly something I am keeping a eye on.&lt;/p&gt;
+
+&lt;h4 id=&#34;installing-kops:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Installing kops&lt;/h4&gt;
+
+&lt;p&gt;I use macOS so from here all instructions will be based on the assumption it&amp;rsquo;s being executed on macOS. It should
+however work on Linux or at least be easily adapted to work on Linux.&lt;/p&gt;
+
+&lt;p&gt;Install Go 1.7 and install kops from source. The pre-build releases of kops does not include a fix in the Go net lib
+which seems to break things in kops every now and again, so we need to build it from source to get the fix.&lt;/p&gt;
+
+&lt;p&gt;Install the following :&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Go 1.7 or better from &lt;a href=&#34;https://golang.org/dl/&#34;&gt;https://golang.org/dl/&lt;/a&gt; or use brew&lt;/li&gt;
+&lt;li&gt;kops - v1.4.4&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code&gt;go get -d k8s.io/kops
+cd ${GOPATH}/src/k8s.io/kops/
+git checkout release
+make
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Test that kops works.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops version
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;setup:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Setup&lt;/h4&gt;
+
+&lt;p&gt;It&amp;rsquo;s strictly not needed to install awscli, as you can do everything needed for setting up a kops created aws kubernetes
+cluster through the Amazon web console. However, I find it useful and prefer it to the console.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;aws-cli/1.10.22 (&lt;a href=&#34;http://docs.aws.amazon.com/cli/latest/userguide/installing.html&#34;&gt;http://docs.aws.amazon.com/cli/latest/userguide/installing.html&lt;/a&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Configure your amazon credentials by running :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;aws configure
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Make sure you don&amp;rsquo;t have &lt;code&gt;AWS_ACCESS_KEY_ID&lt;/code&gt; and &lt;code&gt;AWS_SECRET_ACCESS_KEY&lt;/code&gt; exported as environment variables in your
+shell as it will take preference over the &lt;code&gt;aws configure&lt;/code&gt; credentials. You can off course skip the aws &lt;code&gt;aws configure&lt;/code&gt;
+and just export your AWS credentials with the above mentioned environment variables.&lt;/p&gt;
+
+&lt;p&gt;Create a S3 state store bucket for kops. This bucket get&amp;rsquo;s used by kops to store
+information and configuration of all your Kubernetes clusters you create. Anyone with
+Amazon credentials to the S3 bucket can create/modify and delete the your Kubernetes clusters, which
+makes it very convenient to share this bucket with team members or if you move between computers, and not having to
+move configuration, etc. with you.&lt;/p&gt;
+
+&lt;p&gt;Creating a state store bucket in the eu-west-1 region of amazon.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;aws s3api create-bucket --bucket my-state-store --region eu-west-1
+export KOPS_STATE_STORE=s3://my-state-store
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Decide on a place to save your cluster kubeconfig and ssh keys locally. I like creating a directory structure
+that mimics my my clusters. So for example if I am setting a development stack up for myself I would :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;mkdir -p ~/stacks/dev.daemonza.io
+touch ~/stacks/dev.daemonza.io/kubeconfig 
+EXPORT KUBECONFIG=&amp;quot;~/stacks/dev.daemonza.io/kubeconfig&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Change to this directory and create ssh keys. I normally put the keys in a separate &lt;code&gt;credentials&lt;/code&gt; directory.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;mkdir credentials
+ssh-keygen -t rsa # save the keys in the credentials directory
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;create-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Create cluster&lt;/h4&gt;
+
+&lt;p&gt;First thing is to decided on is the DNS setup for your cluster. It&amp;rsquo;s standard practice to use sub domains
+to identify a cluster. E.g. dev.daemonza., qa.daemonza.io, prod.daemonza.io for the develop, QA and
+production stacks. Following that convention let&amp;rsquo;s create our cluster under dev.daemonza.io.
+Seeing as we are deploying to AWS, let&amp;rsquo;s use Amazon&amp;rsquo;s Route53 DNS service to handle the DNS side for us.&lt;/p&gt;
+
+&lt;p&gt;If you have not already, point your root domain name, in this case daemonza.io to use Route53. Then
+add a NS record to the daemonza.io for the sub domain where this cluster will be(dev.daemonza.io), with the
+sub domains NS servers as values.&lt;/p&gt;
+
+&lt;p&gt;First create the sub domain on route 53&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;ID=$(uuidgen) &amp;amp;&amp;amp; aws route53 create-hosted-zone --name dev.daemonza.io --caller-reference $ID
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Take note of the &amp;laquo;NameServers&amp;raquo; returned. It looks like&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;quot;NameServers&amp;quot;: [
+    &amp;quot;ns-1225.awsdns-00.org&amp;quot;,
+    &amp;quot;ns-1821.awsdns-44.co.uk&amp;quot;,
+    &amp;quot;ns-820.awsdns-32.net&amp;quot;,
+    &amp;quot;ns-143.awsdns-29.com&amp;quot;
+]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now using the above name servers, create a r53-ns-batch.json file. I save this file
+in the locally created stack dir mentioned above.&lt;/p&gt;
+
+&lt;p&gt;Example r53-ns-batch.json file using the above name servers&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;    {
+      &amp;quot;Comment&amp;quot;: &amp;quot;reference subdomain of dev.daemonza.io cluster&amp;quot;,
+      &amp;quot;Changes&amp;quot;: [
+        {
+          &amp;quot;Action&amp;quot;: &amp;quot;CREATE&amp;quot;,
+          &amp;quot;ResourceRecordSet&amp;quot;: {
+            &amp;quot;Name&amp;quot;: &amp;quot;dev.daemonza.io&amp;quot;,
+            &amp;quot;Type&amp;quot;: &amp;quot;NS&amp;quot;,
+            &amp;quot;TTL&amp;quot;: 300,
+            &amp;quot;ResourceRecords&amp;quot;: [
+              {
+                &amp;quot;Value&amp;quot;: &amp;quot;ns-1225.awsdns-00.org&amp;quot;
+              },
+              {
+                &amp;quot;Value&amp;quot;: &amp;quot;ns-1821.awsdns-44.co.uk&amp;quot;
+              },
+              {
+                &amp;quot;Value&amp;quot;: &amp;quot;ns-820.awsdns-32.net&amp;quot;
+              },
+              {
+                &amp;quot;Value&amp;quot;: &amp;quot;ns-143.awsdns-29.com&amp;quot;
+              }
+            ]
+          }
+        }
+      ]
+    }
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now using this r53-ns-batch.json file create a record in your parent domain (daemonza.io).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;aws route53 change-resource-record-sets \
+    --hosted-zone-id XXXXXXXXXXXX \
+    --change-batch file://r53-ns-batch.json
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;XXXXXXXXXXXX being your your parent domain(daemonza.io) zone id. You can find your domain zone ID using&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;aws route53 list-hosted-zones
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Use the following command to get the state of the DNS change&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;aws route53 get-change --id CHANGE_ID_FROM_PREVIOUS_COMMAND
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Wait here until status is INSYNC. It normally takes a couple of moments for me to get
+the INSYNC.&lt;/p&gt;
+
+&lt;p&gt;Now, we are ready to create the cluster.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops create cluster --v=0 \
+  --cloud=aws \
+  --node-count 2 \
+  --master-size=t2.medium \
+  --master-zones=eu-west-1a \
+  --zones eu-west-1a,eu-west-1b \
+  --name=dev.daemonza.io \
+  --node-size=m3.xlarge \
+  --ssh-public-key=~/stacks/dev.daemonza.io/id_rsa.pub \
+  --dns-zone dev.daemonza.io \
+  2&amp;gt;&amp;amp;1 | tee /stacks/dev.daemonza.io/create_cluster.txt
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;A little explanation of the parameters passed to kops :&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--cloud&lt;/code&gt;
+We want to install the cluster on Amazon&amp;rsquo;s AWS. At the moment only aws and google cloud is
+supported.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--node-count&lt;/code&gt;
+The number of worker nodes. This is the nodes running our applications.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--master-size&lt;/code&gt;
+The EC2 instance type of the master node (manage Kubernetes)
+Kubernetes recommends the following on master node sizing&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;For the master, for clusters of less than 5 nodes it will use an m3.medium, for 6-10 nodes it will use an m3.large;
+for 11-100 nodes it will use an m3.xlarge.
+For worker nodes, for clusters less than 50 nodes it will use a t2.micro, for clusters between 50 and 150 nodes it
+will use a t2.small and for clusters with greater than 150 nodes it will use a t2.medium.
+&lt;/code&gt;&lt;/pre&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--master-zones&lt;/code&gt;
+The AWS availability zone(&lt;a href=&#34;http://docs.aws.amazon.com/general/latest/gr/rande.html&#34;&gt;http://docs.aws.amazon.com/general/latest/gr/rande.html&lt;/a&gt;) where the master EC2
+instance will be placed.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--zones&lt;/code&gt;
+The AWS availability zones where the worker nodes EC2 instances will be places.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--name&lt;/code&gt;
+The name you are giving to your stack. This is dev.daemonza.io for this example.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--node-size&lt;/code&gt;
+The worker node EC2 instance type (&lt;a href=&#34;https://aws.amazon.com/ec2/instance-types/&#34;&gt;https://aws.amazon.com/ec2/instance-types/&lt;/a&gt;)&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--ssh-public-key&lt;/code&gt;
+This is the ssh key you generated in the previous command.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;--dns-zone&lt;/code&gt;
+The fqdn of where your stack will be, I normally make this the same as the &lt;code&gt;name&lt;/code&gt; parameter, so
+dev.daemonza.io in this case.&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The output of the commmand I pipe to stdout, to monitor progress and activity while creating the stack and to a file
+in case I missed something on stdout or want to reference something of the stack create in the future.&lt;/p&gt;
+
+&lt;p&gt;This command generates your Kubernetes cluster configuration. Now run update (see below) to
+create your cluster.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops update cluster dev.daemonza.io --yes
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Wait a while for your cluster to come up. You can look in the AWS console at the EC2 instances
+being created. It takes roughly around 10 mins or so for your cluster to become available.&lt;/p&gt;
+
+&lt;p&gt;You can confirm the cluster is there by running&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl get pods
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This will take a while to work, and it will first start working on and off, as in you would get the nodes, or
+some of the nodes back, or a error. Wait here until it returns all the nodes (in this case, two workers, and one master)
+consistently. This step normally takes me around 15 to 20mins.&lt;/p&gt;
+
+&lt;p&gt;When the cluster is up, I usually deploy the Kubernetes Dashboard (&lt;a href=&#34;https://github.com/kubernetes/dashboard&#34;&gt;https://github.com/kubernetes/dashboard&lt;/a&gt;). While I use
+the kubectl command line tool probably 99% of the time, it&amp;rsquo;s nice to every now and again look at your cluster using the UI.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create -f https://rawgit.com/kubernetes/dashboard/master/src/deploy/kubernetes-dashboard.yaml
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You can now run kubectl proxy and access your cluster at
+&lt;a href=&#34;http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all&#34;&gt;http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all&lt;/a&gt;&lt;/p&gt;
+
+&lt;h4 id=&#34;list-clusters:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;List clusters&lt;/h4&gt;
+
+&lt;p&gt;Kops makes it easy to manage multiple stacks. To get a list of all your current stacks
+run the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops get clusters
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Example output :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME			CLOUD	ZONES
+dev.daemonza.io	aws	eu-west-1a,eu-west-1b
+testing.daemonza.io	aws	eu-west-1a,eu-west-1b
+production.daemonza.io	aws	eu-west-1a,eu-west-1b
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;As you can see I have three stacks running. One being the stack (dev.daemonza.io) that we just created, and a testing
+and production cluster.
+From here we can get various information about a cluster. For example to get a description of the
+EC2 instances that make up a cluster run :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops get instancegroups
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This command will list the instances of the cluster to which your KUBECONFIG environment variable is
+pointing. Earlier in this tutorial we created a kubeconfig file and exported KUECONFIG to that. The kops
+create / update command filled out the kubeconfig file for us, which we are using now.&lt;/p&gt;
+
+&lt;p&gt;Example output :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;Using cluster from kubectl context: dev.daemonza.io
+
+NAME			ROLE	MACHINETYPE	MIN	MAX	ZONES
+master-eu-west-1a	Master	t2.medium	1	1	eu-west-1a
+nodes			Node	m3.xlarge	2	2	eu-west-1a,eu-west-1b
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;modify-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Modify cluster&lt;/h4&gt;
+
+&lt;p&gt;Kops makes it easy, and relative safe to modify a Kubernetes cluster with it&amp;rsquo;s rolling updates. Continuing from
+our example above in the  cluster listing. Let&amp;rsquo;s modify our cluster to have three m3.xlarge worker nodes instead
+of just two, and change the root volume size.&lt;/p&gt;
+
+&lt;p&gt;Run&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops edit instancegroups nodes
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This will open a configuration file in your default editor (set it with &lt;code&gt;export EDITOR=vim&lt;/code&gt; if you want vim as default)&lt;/p&gt;
+
+&lt;p&gt;Example of how the configuration looks :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;metadata:
+  creationTimestamp: &amp;quot;2017-01-04T13:59:07Z&amp;quot;
+  name: nodes
+spec:
+  associatePublicIp: true
+  image: kope.io/k8s-1.4-debian-jessie-amd64-hvm-ebs-2016-10-21
+  machineType: m3.xlarge
+  maxSize: 2
+  minSize: 2
+  role: Node
+  zones:
+  - eu-west-1a
+  - eu-west-1b                                                                                                                                                       13
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Change the maxSize value to 3 and keep minSize on 2, this will set the autoscale group on amazon
+to scale to three worker nodes.
+And for the root volume add the following for a 100gig volume of type gp2 (for more on EC2 volume types
+see &lt;a href=&#34;http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)&#34;&gt;http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)&lt;/a&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;rootVolumeSize: 100
+rootVolumeType: gp2
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;With your end result looking like the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;metadata:
+  creationTimestamp: &amp;quot;2017-01-04T13:59:07Z&amp;quot;
+  name: nodes
+spec:
+  associatePublicIp: true
+  image: kope.io/k8s-1.4-debian-jessie-amd64-hvm-ebs-2016-10-21
+  machineType: m3.xlarge
+  maxSize: 2
+  minSize: 2
+  role: Node
+  rootVolumeSize: 100
+  rootVolumeType: gp2
+  zones:
+  - eu-west-1a
+  - eu-west-1b 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Confirm the changes is correct by running&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops update cluster dev.daemonza.io
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If your happy with the changes run the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops update cluster dev.daemonza.io --yes
+kops rolling-update cluster --yes
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Sit back and wait for your cluster changes to take affect.&lt;/p&gt;
+
+&lt;h4 id=&#34;remove-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Remove cluster&lt;/h4&gt;
+
+&lt;p&gt;Now to remove the cluster that you just created run&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kops delete cluster dev.daemonza.io
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This will print a list of amazon resources that will be removed.
+Example :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;TYPE		NAME				ID
+dhcp-options	dev.daemonza.io	        	dopt-6627fc02
+route-table 	dev.daemonza.io	    	    rtb-36fc1351
+security-group	masters.dev.daemonza.io	    sg-e6e99a80
+security-group	nodes.dev.daemonza.io	    sg-19e99a7f
+subnet		    eu-west-1a.dev.daemonza.io	subnet-1cdbb344
+subnet		    eu-west-1b.dev.daemonza.io	subnet-b17f51d5
+vpc	        	dev.daemonza.io		        vpc-bbf7a5df
+
+Must specify --yes to delete
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Then if you are a 100% sure you want to remove the cluster, NOTE, there is no coming back
+from this, add &amp;ndash;yes to the the command.&lt;/p&gt;
+
+&lt;h4 id=&#34;conclusion:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Conclusion&lt;/h4&gt;
+
+&lt;p&gt;That&amp;rsquo;s it folks! Kops is a powerful tool to work with Kubernetes and we have barely scratch the
+surface in this article. For more information, of what else you can do with Kops head over to
+&lt;a href=&#34;https://github.com/kubernetes/kops&#34;&gt;https://github.com/kubernetes/kops&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title></title>

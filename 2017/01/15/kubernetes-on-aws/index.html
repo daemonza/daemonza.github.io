@@ -43,7 +43,7 @@
     },
     "datePublished": "2017-01-15",
     "description": "",
-    "wordCount":  1427 
+    "wordCount":  1793 
   }
 </script>
 
@@ -170,8 +170,8 @@
 
 
   
-  &middot; Read in about 7 min
-  &middot; (1427 Words)
+  &middot; Read in about 9 min
+  &middot; (1793 Words)
   <br>
   
 
@@ -199,7 +199,7 @@ used it myself before, but it&rsquo;s defiantly something I am keeping a eye on.
 however work on Linux or at least be easily adapted to work on Linux.</p>
 
 <p>Install Go 1.7 and install kops from source. The pre-build releases of kops does not include a fix in the Go net lib
-which seems to break things every now and again.</p>
+which seems to break things in kops every now and again, so we need to build it from source to get the fix.</p>
 
 <p>Install the following :</p>
 
@@ -214,15 +214,15 @@ git checkout release
 make
 </code></pre>
 
-<p>Test that kops works with</p>
+<p>Test that kops works.</p>
 
 <pre><code>kops version
 </code></pre>
 
 <h4 id="setup:3ac6298d606a83e1b55f117f57e6507d">Setup</h4>
 
-<p>It&rsquo;s strickly not needed to install awscli, but it&rsquo;s extremely useful when working with
-Kubernetes clusters on Amazon;</p>
+<p>It&rsquo;s strictly not needed to install awscli, as you can do everything needed for setting up a kops created aws kubernetes
+cluster through the Amazon web console. However, I find it useful and prefer it to the console.</p>
 
 <ul>
 <li>aws-cli/1.10.22 (<a href="http://docs.aws.amazon.com/cli/latest/userguide/installing.html">http://docs.aws.amazon.com/cli/latest/userguide/installing.html</a>)</li>
@@ -233,10 +233,14 @@ Kubernetes clusters on Amazon;</p>
 <pre><code>aws configure
 </code></pre>
 
+<p>Make sure you don&rsquo;t have <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> exported as environment variables in your
+shell as it will take preference over the <code>aws configure</code> credentials. You can off course skip the aws <code>aws configure</code>
+and just export your AWS credentials with the above mentioned environment variables.</p>
+
 <p>Create a S3 state store bucket for kops. This bucket get&rsquo;s used by kops to store
 information and configuration of all your Kubernetes clusters you create. Anyone with
-Amazon credentials to the S3 bucket and create/modify and delete the your Kubernetes clusters, which
-makes it very confieniant to share with team members or if you move between computers, and not having to
+Amazon credentials to the S3 bucket can create/modify and delete the your Kubernetes clusters, which
+makes it very convenient to share this bucket with team members or if you move between computers, and not having to
 move configuration, etc. with you.</p>
 
 <p>Creating a state store bucket in the eu-west-1 region of amazon.</p>
@@ -245,15 +249,15 @@ move configuration, etc. with you.</p>
 export KOPS_STATE_STORE=s3://my-state-store
 </code></pre>
 
-<p>Decided on a place to save your cluster kubeconfig and ssh keys locally. I like creating a directory structure
-that mimicks my my clusters. So for example if I am setting a development stack up for myself I would :</p>
+<p>Decide on a place to save your cluster kubeconfig and ssh keys locally. I like creating a directory structure
+that mimics my my clusters. So for example if I am setting a development stack up for myself I would :</p>
 
 <pre><code>mkdir -p ~/stacks/dev.daemonza.io
 touch ~/stacks/dev.daemonza.io/kubeconfig 
 EXPORT KUBECONFIG=&quot;~/stacks/dev.daemonza.io/kubeconfig&quot;
 </code></pre>
 
-<p>Change to this directory and create ssh keys.</p>
+<p>Change to this directory and create ssh keys. I normally put the keys in a separate <code>credentials</code> directory.</p>
 
 <pre><code>mkdir credentials
 ssh-keygen -t rsa # save the keys in the credentials directory
@@ -261,10 +265,85 @@ ssh-keygen -t rsa # save the keys in the credentials directory
 
 <h4 id="create-cluster:3ac6298d606a83e1b55f117f57e6507d">Create cluster</h4>
 
-<p>First thing is to decided on the DNS setup for yout cluster. It&rsquo;s standard practice to use subdomains
+<p>First thing is to decided on is the DNS setup for your cluster. It&rsquo;s standard practice to use sub domains
 to identify a cluster. E.g. dev.daemonza., qa.daemonza.io, prod.daemonza.io for the develop, QA and
 production stacks. Following that convention let&rsquo;s create our cluster under dev.daemonza.io.
 Seeing as we are deploying to AWS, let&rsquo;s use Amazon&rsquo;s Route53 DNS service to handle the DNS side for us.</p>
+
+<p>If you have not already, point your root domain name, in this case daemonza.io to use Route53. Then
+add a NS record to the daemonza.io for the sub domain where this cluster will be(dev.daemonza.io), with the
+sub domains NS servers as values.</p>
+
+<p>First create the sub domain on route 53</p>
+
+<pre><code>ID=$(uuidgen) &amp;&amp; aws route53 create-hosted-zone --name dev.daemonza.io --caller-reference $ID
+</code></pre>
+
+<p>Take note of the &laquo;NameServers&raquo; returned. It looks like</p>
+
+<pre><code>&quot;NameServers&quot;: [
+    &quot;ns-1225.awsdns-00.org&quot;,
+    &quot;ns-1821.awsdns-44.co.uk&quot;,
+    &quot;ns-820.awsdns-32.net&quot;,
+    &quot;ns-143.awsdns-29.com&quot;
+]
+</code></pre>
+
+<p>Now using the above name servers, create a r53-ns-batch.json file. I save this file
+in the locally created stack dir mentioned above.</p>
+
+<p>Example r53-ns-batch.json file using the above name servers</p>
+
+<pre><code>    {
+      &quot;Comment&quot;: &quot;reference subdomain of dev.daemonza.io cluster&quot;,
+      &quot;Changes&quot;: [
+        {
+          &quot;Action&quot;: &quot;CREATE&quot;,
+          &quot;ResourceRecordSet&quot;: {
+            &quot;Name&quot;: &quot;dev.daemonza.io&quot;,
+            &quot;Type&quot;: &quot;NS&quot;,
+            &quot;TTL&quot;: 300,
+            &quot;ResourceRecords&quot;: [
+              {
+                &quot;Value&quot;: &quot;ns-1225.awsdns-00.org&quot;
+              },
+              {
+                &quot;Value&quot;: &quot;ns-1821.awsdns-44.co.uk&quot;
+              },
+              {
+                &quot;Value&quot;: &quot;ns-820.awsdns-32.net&quot;
+              },
+              {
+                &quot;Value&quot;: &quot;ns-143.awsdns-29.com&quot;
+              }
+            ]
+          }
+        }
+      ]
+    }
+</code></pre>
+
+<p>Now using this r53-ns-batch.json file create a record in your parent domain (daemonza.io).</p>
+
+<pre><code>aws route53 change-resource-record-sets \
+    --hosted-zone-id XXXXXXXXXXXX \
+    --change-batch file://r53-ns-batch.json
+</code></pre>
+
+<p>XXXXXXXXXXXX being your your parent domain(daemonza.io) zone id. You can find your domain zone ID using</p>
+
+<pre><code>aws route53 list-hosted-zones
+</code></pre>
+
+<p>Use the following command to get the state of the DNS change</p>
+
+<pre><code>aws route53 get-change --id CHANGE_ID_FROM_PREVIOUS_COMMAND
+</code></pre>
+
+<p>Wait here until status is INSYNC. It normally takes a couple of moments for me to get
+the INSYNC.</p>
+
+<p>Now, we are ready to create the cluster.</p>
 
 <pre><code>kops create cluster --v=0 \
   --cloud=aws \
@@ -283,7 +362,7 @@ Seeing as we are deploying to AWS, let&rsquo;s use Amazon&rsquo;s Route53 DNS se
 
 <ul>
 <li><p><code>--cloud</code>
-We want to install the cluster on Amazon&rsquo;s AWS. At the moment only aws and google cloud engine is
+We want to install the cluster on Amazon&rsquo;s AWS. At the moment only aws and google cloud is
 supported.</p></li>
 
 <li><p><code>--node-count</code>
@@ -307,8 +386,7 @@ instance will be placed.</p></li>
 The AWS availability zones where the worker nodes EC2 instances will be places.</p></li>
 
 <li><p><code>--name</code>
-The name you are giving to your stack. I like to make this a fqdn. Something like data-processing.example.com
-if the stack&rsquo;s main purpose is going to be data processing for example.com.</p></li>
+The name you are giving to your stack. This is dev.daemonza.io for this example.</p></li>
 
 <li><p><code>--node-size</code>
 The worker node EC2 instance type (<a href="https://aws.amazon.com/ec2/instance-types/">https://aws.amazon.com/ec2/instance-types/</a>)</p></li>
@@ -317,31 +395,33 @@ The worker node EC2 instance type (<a href="https://aws.amazon.com/ec2/instance-
 This is the ssh key you generated in the previous command.</p></li>
 
 <li><p><code>--dns-zone</code>
-The fqdn of where your stack will be, I normally make this the same as the <code>name</code> parameter.</p></li>
+The fqdn of where your stack will be, I normally make this the same as the <code>name</code> parameter, so
+dev.daemonza.io in this case.</p></li>
 </ul>
 
 <p>The output of the commmand I pipe to stdout, to monitor progress and activity while creating the stack and to a file
 in case I missed something on stdout or want to reference something of the stack create in the future.</p>
 
-<p>This command generated your Kubernetes cluster configuration. Now run update (see below) to
+<p>This command generates your Kubernetes cluster configuration. Now run update (see below) to
 create your cluster.</p>
 
 <pre><code>kops update cluster dev.daemonza.io --yes
 </code></pre>
 
 <p>Wait a while for your cluster to come up. You can look in the AWS console at the EC2 instances
-being created. It takes roughly around 10 mins or so for your cluster to become availible.</p>
+being created. It takes roughly around 10 mins or so for your cluster to become available.</p>
 
 <p>You can confirm the cluster is there by running</p>
 
 <pre><code>kubectl get pods
 </code></pre>
 
-<p>To get a list of all the nodes in your cluster (1 master, 2 worker nodes)</p>
+<p>This will take a while to work, and it will first start working on and off, as in you would get the nodes, or
+some of the nodes back, or a error. Wait here until it returns all the nodes (in this case, two workers, and one master)
+consistently. This step normally takes me around 15 to 20mins.</p>
 
-<p>I usually deploy the Kubernetes Dashboard (<a href="https://github.com/kubernetes/dashboard">https://github.com/kubernetes/dashboard</a>) after the cluster is up. I use
-the kubectl command line tool probably 99% of the time, but it&rsquo;s nice to every now and again look
-at your cluster using the UI.</p>
+<p>When the cluster is up, I usually deploy the Kubernetes Dashboard (<a href="https://github.com/kubernetes/dashboard">https://github.com/kubernetes/dashboard</a>). While I use
+the kubectl command line tool probably 99% of the time, it&rsquo;s nice to every now and again look at your cluster using the UI.</p>
 
 <pre><code>kubectl create -f https://rawgit.com/kubernetes/dashboard/master/src/deploy/kubernetes-dashboard.yaml
 </code></pre>
@@ -365,7 +445,8 @@ testing.daemonza.io	aws	eu-west-1a,eu-west-1b
 production.daemonza.io	aws	eu-west-1a,eu-west-1b
 </code></pre>
 
-<p>As you can see I have three stacks running. One being the stack (dev.daemonza.io) that we just created.
+<p>As you can see I have three stacks running. One being the stack (dev.daemonza.io) that we just created, and a testing
+and production cluster.
 From here we can get various information about a cluster. For example to get a description of the
 EC2 instances that make up a cluster run :</p>
 
@@ -387,9 +468,9 @@ nodes			Node	m3.xlarge	2	2	eu-west-1a,eu-west-1b
 
 <h4 id="modify-cluster:3ac6298d606a83e1b55f117f57e6507d">Modify cluster</h4>
 
-<p>Kops makes it easy, and relative safe to modify a Kubernetes cluster. Continuing from our example above in the
-cluster listing. Let&rsquo;s modify our cluster to have three m3.xlarge worker nodes instead of just two, and
-change the root volume size.</p>
+<p>Kops makes it easy, and relative safe to modify a Kubernetes cluster with it&rsquo;s rolling updates. Continuing from
+our example above in the  cluster listing. Let&rsquo;s modify our cluster to have three m3.xlarge worker nodes instead
+of just two, and change the root volume size.</p>
 
 <p>Run</p>
 
@@ -478,12 +559,12 @@ vpc	        	dev.daemonza.io		        vpc-bbf7a5df
 Must specify --yes to delete
 </code></pre>
 
-<p>Then if your a 100% sure you want to remove the cluster, NOTE, there is no coming back
-from this, add &ndash;yes to the the command</p>
+<p>Then if you are a 100% sure you want to remove the cluster, NOTE, there is no coming back
+from this, add &ndash;yes to the the command.</p>
 
 <h4 id="conclusion:3ac6298d606a83e1b55f117f57e6507d">Conclusion</h4>
 
-<p>That&rsquo;s it folks! Kops is a powerfull tool to work with Kubernetes and we have barely scratch the
+<p>That&rsquo;s it folks! Kops is a powerful tool to work with Kubernetes and we have barely scratch the
 surface in this article. For more information, of what else you can do with Kops head over to
 <a href="https://github.com/kubernetes/kops">https://github.com/kubernetes/kops</a></p>
 
