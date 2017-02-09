@@ -9,8 +9,734 @@
     <managingEditor>werner.gillmer@gmail.com (Werner Gillmer)</managingEditor>
     <webMaster>werner.gillmer@gmail.com (Werner Gillmer)</webMaster>
     <copyright>(c) 2017 Werner Gillmer</copyright>
-    <lastBuildDate>Sun, 15 Jan 2017 10:09:57 +0100</lastBuildDate>
+    <lastBuildDate>Mon, 13 Feb 2017 09:42:32 +0100</lastBuildDate>
     <atom:link href="https://daemonza.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Kubernetes nginx-ingress-controller</title>
+      <link>https://daemonza.github.io/2017/02/13/kubernetes-nginx-ingress-controller/</link>
+      <pubDate>Mon, 13 Feb 2017 09:42:32 +0100</pubDate>
+      <author>werner.gillmer@gmail.com (Werner Gillmer)</author>
+      <guid>https://daemonza.github.io/2017/02/13/kubernetes-nginx-ingress-controller/</guid>
+      <description>
+
+&lt;h4 id=&#34;introduction:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Introduction&lt;/h4&gt;
+
+&lt;p&gt;In this post I will explain, how I expose applications running on Kubernetes clusters to the internet with the
+help of Ingress controllers.&lt;/p&gt;
+
+&lt;p&gt;But first a little bit about Kubernetes Ingresses and Services. On a very simplistic level a &lt;code&gt;Service&lt;/code&gt; is a
+logical abstraction communication layer to pods. During normal operations pods get&amp;rsquo;s created, destroyed, scaled out, etc.&lt;/p&gt;
+
+&lt;p&gt;A &lt;code&gt;Service&lt;/code&gt; make&amp;rsquo;s it easy to always connect to the pods by connecting to their &lt;code&gt;service&lt;/code&gt; which stays stable during the
+pod life cycle. A important thing about &lt;code&gt;services&lt;/code&gt; are what their type is, it determines how the &lt;code&gt;service&lt;/code&gt; expose itself
+to the cluster or the internet. Some of the &lt;code&gt;service&lt;/code&gt; types are :&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;ClusterIP
+Your service is only expose internally to the cluster on the internal cluster IP. A example would be to
+deploy Hasicorp&amp;rsquo;s vault and expose it only internally.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;NodePort
+Expose the service on the EC2 Instance on the specified port. This will be exposed to the internet. Off course it
+this all depends on your AWS Security group / VPN rules.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;LoadBalancer
+Supported on Amazon and Google cloud, this creates the cloud providers your using load balancer. So on Amazon it creates
+a ELB that points to your &lt;code&gt;service&lt;/code&gt; on your cluster.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;ExternalName
+Create a CNAME dns record to a external domain.&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;For more information about &lt;code&gt;Services&lt;/code&gt; look at &lt;a href=&#34;https://kubernetes.io/docs/user-guide/services/&#34;&gt;https://kubernetes.io/docs/user-guide/services/&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;A &lt;code&gt;Ingress&lt;/code&gt; is rules on how to access a &lt;code&gt;Service&lt;/code&gt; from the internet.&lt;/p&gt;
+
+&lt;p&gt;For more information about &lt;code&gt;Ingresses&lt;/code&gt; look at
+&lt;a href=&#34;https://kubernetes.io/docs/user-guide/ingress/&#34;&gt;https://kubernetes.io/docs/user-guide/ingress/&lt;/a&gt;&lt;/p&gt;
+
+&lt;h4 id=&#34;scenario:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Scenario&lt;/h4&gt;
+
+&lt;p&gt;Imagine this scenario, you have a cluster running, on Amazon, you have multiple applications deployed to it, some are API&amp;rsquo;s some
+are Java applications running inside something like Tomcat, and to add to the mix, you have a couple of static html pages sitting in a
+Apache web server that serves as documentation for your api&amp;rsquo;s. All applications needs to have SSL, some of the api&amp;rsquo;s endpoints have changed,
+but you still have to serve the old endpoint path, so you need to do some sort of path rewrite. How do you expose everything to the
+internet? The obvious answer is create a  &lt;code&gt;type LoadBalancer&lt;/code&gt; service for each, but, then multiple ELB&amp;rsquo;s will be created, you have to
+deal with SSL termination at each ELB, you have to CNAME your applications/api&amp;rsquo;s domain names to the right ELB&amp;rsquo;s, and in general just have
+very little control over the ELB.&lt;/p&gt;
+
+&lt;p&gt;Enter &lt;code&gt;Ingress Controllers&lt;/code&gt;. You deploy a &lt;code&gt;ingress controller&lt;/code&gt;, create a &lt;code&gt;type LoadBalancer&lt;/code&gt; service for it, and it sits and monitors
+Kubernetes api server&amp;rsquo;s /ingresses endpoint and acts as a reverse proxy for the ingress rules it found there. You then deploy
+your application and expose it&amp;rsquo;s service as a &lt;code&gt;type NodePort&lt;/code&gt;, and create ingress rules for it. The &lt;code&gt;ingress controller&lt;/code&gt; then
+picks up the new deployed service and proxy traffic to it from outside.&lt;/p&gt;
+
+&lt;p&gt;Following this setup, you only have one ELB then on Amazon, and a central place at the &lt;code&gt;ingress controller&lt;/code&gt; to manage the traffic coming
+into your cluster to your applications.&lt;/p&gt;
+
+&lt;h4 id=&#34;ingress-controllers:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Ingress controllers&lt;/h4&gt;
+
+&lt;p&gt;Two of the more popular ones that I normally use, are Traefik and Nginx-ingress-controller. I like both, and for simple projects I prefer using Traefik
+as it&amp;rsquo; easy to setup and use. However as the projects needs grow or for more complex projects, I reach for the nginx-ingress-controller.&lt;/p&gt;
+
+&lt;p&gt;Couple of differences between the two, that normally helps me decide which one to pick for a project.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Traefik routes to the Kubernetes service, Nginx, by pass the service and routes to the pods. This allows nginx
+to do sticky sessions if your application needs it.&lt;/li&gt;
+&lt;li&gt;Traefik works with multiple backends (docker, swarm, marathon, etcd, consul, kubernetes, etc. etc.) See &lt;a href=&#34;https://docs.traefik.io/&#34;&gt;https://docs.traefik.io/&lt;/a&gt;
+The nginx-ingress-controller is specfic for Kubernetes, you can off course build your own Nginx reverse proxy, perhaps with OpenResty
+and get it to work with almost any backend, but that requires a significant time investment.&lt;/li&gt;
+&lt;li&gt;The nginx-ingress-controller can handle websockets, Traefik does not.&lt;/li&gt;
+&lt;li&gt;Traefik can do basic path manipulation by using &lt;code&gt;PathPrefixStrip&lt;/code&gt; but cannot do more complex path rewrites like Nginx.&lt;/li&gt;
+&lt;li&gt;The nginx-ingress-controller is build on top of OpenResty (&lt;a href=&#34;https://openresty.org&#34;&gt;https://openresty.org&lt;/a&gt;). Using Lua you can easily extend Nginx capabilities
+and mold it to do whatever you need it to do.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;For more information look at :&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;https://traefik.io/&#34;&gt;https://traefik.io/&lt;/a&gt;
+&lt;a href=&#34;https://github.com/kubernetes/contrib/tree/master/ingress/controllers/nginx&#34;&gt;https://github.com/kubernetes/contrib/tree/master/ingress/controllers/nginx&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;In general I prefer the nginx-ingress-controller, so for the rest of the article I will focus on it.&lt;/p&gt;
+
+&lt;h4 id=&#34;setup:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Setup&lt;/h4&gt;
+
+&lt;p&gt;Let&amp;rsquo;s setup a little demo &amp;lsquo;hello world&amp;rsquo; api on our  cluster and expose the api on the internet using
+nginx-ingress-controller. Let&amp;rsquo;s deploy the &lt;code&gt;nginx-ingress-controller&lt;/code&gt; first.&lt;/p&gt;
+
+&lt;p&gt;For the controller, the first thing we need to do is setup a default backend service for
+nginx.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code&gt;default backend&lt;/code&gt; is the default service that nginx falls backs to if if cannot route a request
+successfully. The &lt;code&gt;default backend&lt;/code&gt; needs to satisfy the following two requirements :&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;serves a 404 page at /&lt;/li&gt;
+&lt;li&gt;serves 200 on a /healthz&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;See more here &lt;a href=&#34;https://github.com/kubernetes/contrib/tree/master/404-server&#34;&gt;https://github.com/kubernetes/contrib/tree/master/404-server&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Let&amp;rsquo;s use the example &lt;code&gt;default backend&lt;/code&gt; from the nginx-ingress-controller github project&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create -f https://raw.githubusercontent.com/kubernetes/contrib/master/ingress/controllers/nginx/examples/default-backend.yaml
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If we want to handle SSL requests (which we should always do) Nginx needs to have a default SSL certificate. This
+get&amp;rsquo;s used for requests for there is not specified SSL certificate.&lt;/p&gt;
+
+&lt;p&gt;Assuming you have SSL cert and key, create &lt;code&gt;secrets&lt;/code&gt; as follow, where tsl.key is the key name
+and tsl.crt is your certificate and dhparam.pem is the pem file.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create secret tls tls-certificate --key tls.key --cert tls.crt 
+kubectl create secret generic tls-dhparam --from-file=dhparam.pem 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Save the following to a file (e.g. nginx-ingress-controller.yml) :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-ingress
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      name: http
+    - port: 443
+      name: https
+  selector:
+    k8s-app: nginx-ingress-lb
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  template:
+    metadata:
+      labels:
+        k8s-app: nginx-ingress-lb
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: nginx-ingress-controller
+          image: gcr.io/google_containers/nginx-ingress-controller:0.8.3
+          imagePullPolicy: Always
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 18080
+              scheme: HTTP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 18080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          args:
+            - /nginx-ingress-controller
+            - --default-backend-service=$(POD_NAMESPACE)/default-http-backend
+            - --default-ssl-certificate=$(POD_NAMESPACE)/tls-certificate
+          # Use downward API
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            - name: tls-dhparam-vol
+              mountPath: /etc/nginx-ssl/dhparam
+            - name: nginx-template-volume
+              mountPath: /etc/nginx/template
+              readOnly: true
+      volumes:
+        - name: tls-dhparam-vol
+          secret:
+            secretName: tls-dhparam
+        - name: nginx-template-volume
+          configMap:
+            name: nginx-template
+            items:
+            - key: nginx.tmpl
+              path: nginx.tmpl
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You might have noticed as well, we specify a &lt;code&gt;default-backend-service&lt;/code&gt;, this is used by nginx to route requests on
+which it found not ingress rule match. We need to deploy this &lt;code&gt;default-backend-service&lt;/code&gt; before we deploy
+nginx. We can use the example default backend yaml file from the Kubernetes ingress github repo. After the deployment
+expose the &lt;code&gt;default-http-backend&lt;/code&gt; so that the nginx-ingress-controller can communicate with it.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create -f https://raw.githubusercontent.com/kubernetes/contrib/master/ingress/controllers/nginx/examples/default-backend.yaml
+kubectl expose rc default-http-backend --port=80 --target-port=8080 --name=default-http-backend
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We can now deploy &lt;code&gt;nginx-ingress-controller&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create -f ./nginx-ingress-controller.yml
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;What this command did was, it created a deployment with two replicas of the &lt;code&gt;nginx-ingress-controller&lt;/code&gt;
+and a service for it of &lt;code&gt;type LoadBalancer&lt;/code&gt; which created a ELB for us on AWS.
+Let&amp;rsquo;s confirm that. Get the service :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl get services -o wide | grep nginx
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You should get something similar to the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;nginx-ingress  100.62.254.11  aaba00ec3d35211r68caa0a32e7f202e-566d19265.eu-west-1.elb.amazonaws.com  80:32199/TCP,443:31772/TCP 25d  k8s-app=nginx-ingress-lb
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This means the ELB on Amazon got created. Any domain&amp;rsquo;s who&amp;rsquo;s traffic we want to go to this
+ingress controller should be CNAMED to this ELB hostname (&lt;code&gt;aaba00ec3d35211r68caa0a32e7f202e-566d19265.eu-west-1.elb.amazonaws.com&lt;/code&gt;)
+For the rest of this post, I am going to assume api.daemonza.io is CNAMED to this ELB&lt;/p&gt;
+
+&lt;p&gt;Make sure the deployment pods are up and running :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl get pods | grep nginx
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You should get something similar to the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;nginx-ingress-controller-1461575992-62j00   1/1       Running   0          30sec
+nginx-ingress-controller-1461575992-eoqqb   1/1       Running   0          30sec
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Using the ELB hostname that we got from the querying for the &lt;code&gt;nginx-ingress-controller&lt;/code&gt; service, make
+sure that traffic is being routed.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;curl -v aaba00ec3d35211r68caa0a32e7f202e-566d19265.eu-west-1.elb.amazonaws.com
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You should see the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;lt; HTTP/1.1 404 Not Found
+&amp;lt; Server: nginx/1.11.3
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;and the response should be&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;default backend - 404
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This means everything is working correctly and the ELB forwarded traffic to our
+&lt;code&gt;nginx-ingress-controller&lt;/code&gt; and the &lt;code&gt;nginx-ingress-controller&lt;/code&gt; passed it along to the
+&lt;code&gt;default-backend-service&lt;/code&gt; that we deployed.&lt;/p&gt;
+
+&lt;h4 id=&#34;deploying-our-api-application:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Deploying our API application&lt;/h4&gt;
+
+&lt;p&gt;I like Go, so I created a little API that we can deploy and test the ingress controller with.
+This is the api we are going to deploy :
+&lt;a href=&#34;https://hub.docker.com/r/daemonza/testapi/&#34;&gt;https://hub.docker.com/r/daemonza/testapi/&lt;/a&gt;
+and the super simplistic source code is at &lt;a href=&#34;https://github.com/daemonza/testapi&#34;&gt;https://github.com/daemonza/testapi&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Create a file, let&amp;rsquo;s call it testapi.md with the following contents&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: extensions/v1beta1 
+kind: Deployment 
+metadata:
+  name: testapi 
+  namespace: default 
+  labels:
+    application: testapi
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      application: testapi
+  template:
+    metadata:
+      labels:
+        application: testapi 
+    spec:
+      containers:
+        - name: testapi
+          image: docker pull daemonza/testapi:latest
+          imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testapi 
+  namespace: default 
+  labels:
+    application: testapi 
+spec:
+  type: NodePort
+  selector:
+    application: testapi 
+  ports:
+  - port: 8080
+    targetPort: 8080 
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: testapi
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: &amp;quot;nginx&amp;quot;
+    ingress.kubernetes.io/ssl-redirect: &amp;quot;true&amp;quot;
+spec:
+  rules:
+  - host: &amp;quot;api.daemonza.io&amp;quot;
+    http:
+      paths:
+      - path: /testapi
+        backend:
+          serviceName: testapi
+          servicePort: 8080
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Quick run through of the above file. It consists of three parts, deployment, service, ingress.&lt;/p&gt;
+
+&lt;p&gt;I normally split these into threes separate files, but for the sake of this blog post, let&amp;rsquo;s
+keep it all in one file. For the nginx-ingress-controller we are mostly interested in
+the &lt;code&gt;ingress&lt;/code&gt; part.&lt;/p&gt;
+
+&lt;p&gt;In the form of &lt;code&gt;annotations&lt;/code&gt; it&amp;rsquo;s possible for us to pass some configuration through to the nginx-ingress-controller.
+In the above example we say we want this to always be used with nginx-ingress-controller, in case we have multiple
+controllers, and we always want to redirect HTTP to HTTPS.
+Then we want to route all traffic where the host (virtual host) is api.daemonza.io but only on the &lt;code&gt;/testapi&lt;/code&gt; path, and
+we want to route the traffic to the &lt;code&gt;testapi service&lt;/code&gt;, which in turn expose the &lt;code&gt;testapi deployment&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;If we look at the equivalent simplified nginx configuration it would look similar to the following, where the &lt;code&gt;upstream&lt;/code&gt; is
+&lt;code&gt;deployment&lt;/code&gt; with three replica&amp;rsquo;s.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;    upstream default-testapi-8080 {
+        server 100.96.3.148:8080 max_fails=0 fail_timeout=0;
+        server 100.96.4.222:8080 max_fails=0 fail_timeout=0;
+        server 100.96.4.223:8080 max_fails=0 fail_timeout=0;   
+    }
+    
+    server {
+            server_name api.daemonza.io;
+            listen 80;
+
+            location /testapi {
+                   
+                proxy_pass http://default-testapi-8080;
+            }
+            
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now let&amp;rsquo;s test it.
+Deploy with the following command&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create -f ./testapi.md
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You should see output similar to&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;deployment &amp;quot;testapi&amp;quot; created
+service &amp;quot;testapi&amp;quot; created
+ingress &amp;quot;testapi&amp;quot; created
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let&amp;rsquo;s check on the ingress rule&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl get ingress testapi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You should see something similar to :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME      HOSTS             ADDRESS          PORTS     AGE
+testapi   api.daemonza.io   51.232.218.155   80
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let&amp;rsquo;s ask for a little more information with &lt;code&gt;describe&lt;/code&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl describe ingress testapi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;pre&gt;&lt;code&gt;Name:			testapi
+Namespace:		default
+Address:		52.214.207.195
+Default backend:	default-http-backend:80 (&amp;lt;none&amp;gt;)
+Rules:
+  Host			Path	Backends
+  ----			----	--------
+  api.daemonza.io
+    			/testapi 	testapi:8080 (&amp;lt;none&amp;gt;)
+Annotations:
+  ssl-redirect:	true
+Events:
+  FirstSeen	LastSeen	Count	From				SubObjectPath	Type		Reason	Message
+  ---------	--------	-----	----				-------------	--------	------	-------
+  2m		2m		1	{nginx-ingress-controller }			Normal		CREATE	default/testapi
+  2m		2m		1	{nginx-ingress-controller }			Normal		CREATE	ip: 51.232.218.155
+  2m		2m		1	{nginx-ingress-controller }			Normal		UPDATE	default/testapi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;From this we can see that we asked the nginx-ingress-controller to route requests
+for &lt;code&gt;api.daemonza.io&lt;/code&gt; on path &lt;code&gt;/testapi&lt;/code&gt; to our backend &lt;code&gt;testapi&lt;/code&gt;. Plain HTTP requests
+will be redirected over to HTTPS and the testapi is scaled out to three replicas.&lt;/p&gt;
+
+&lt;p&gt;Ok so with the testapi deployed, let&amp;rsquo;s see if everything works.
+The test api expose the following endpoints :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;PUT /put/:something
+GET /get/:something
+POST /post/:something
+DELETE /get/:something
+PATCH /patch/:something
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Where :something is anything you want to put there.&lt;/p&gt;
+
+&lt;p&gt;Let&amp;rsquo;s try a POST request&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;curl -X POST http://api.daemonza.io/post/hello
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We should get http status code 301(moved permanently) back, this is because in our
+testapi ingress specification, we added this annotation :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;ingress.kubernetes.io/ssl-redirect: &amp;quot;true&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Which tells nginx to redirect http to https.
+If we do the request again on https we should get status 200 back. Assuming that worked, let&amp;rsquo;s move on and add
+some virtual hosts for our testapi.&lt;/p&gt;
+
+&lt;h4 id=&#34;virtual-hosts:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Virtual hosts&lt;/h4&gt;
+
+&lt;p&gt;Change the testapi.md ingress specification to look as follow, change the host domain name to a domain that you own
+or setup them up in your local /etc/hosts file for testing.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: testapi
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: &amp;quot;nginx&amp;quot;
+    ingress.kubernetes.io/ssl-redirect: &amp;quot;true&amp;quot;
+spec:
+  rules:
+  - host: &amp;quot;blue.daemonza.io&amp;quot;
+    http:
+      paths:
+      - path: /testapi
+        backend:
+          serviceName: testapi
+          servicePort: 8080  
+  - host: &amp;quot;green.daemonza.io&amp;quot;
+    http:
+      paths:
+      - path: /testapi
+        backend:
+          serviceName: testapi
+          servicePort: 8080  
+  - host: &amp;quot;api.myfakedomain.io&amp;quot;
+    http:
+      paths:
+      - path: /testapi
+        backend:
+          serviceName: testapi
+          servicePort: 8080
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You can also route multiple virtual hosts on different paths to the same backend service.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: testapi
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: &amp;quot;nginx&amp;quot;
+    ingress.kubernetes.io/ssl-redirect: &amp;quot;true&amp;quot;
+spec:
+  rules:
+  - host: &amp;quot;blue.daemonza.io&amp;quot;
+    http:
+      paths:
+      - path: /testapi/get/blue
+        backend:
+          serviceName: testapi
+          servicePort: 8080
+  - host: &amp;quot;green.daemonza.io&amp;quot;
+    http:
+      paths:
+      - path: /testapi/get/green
+        backend:
+          serviceName: testapi
+          servicePort: 8080                 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In the above the example we are routing two different virtual hosts, to the same API, but on different
+api endpoints. We can then off course also do the opposite by having multiple little api &amp;laquo;micro services&amp;raquo;
+and route traffic to the correct one by matching up the backend serviceName with the Path.&lt;/p&gt;
+
+&lt;p&gt;Let&amp;rsquo;s test requests to our api on the api.myfakedomain.io virtual host we added.
+Add api.myfakedomain.io to your /etc/hosts file in order to test with that domain.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;curl https://api.myfakedomain.io
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Running that curl command, curls tells us &lt;code&gt;curl: (60) SSL certificate problem: Invalid certificate chain&lt;/code&gt;
+which is correct as we don&amp;rsquo;t have the SSL certificate for that domain configured in nginx. Luckily through
+ingress rules, we can specify a ssl certificate per virtual host as follow :&lt;/p&gt;
+
+&lt;p&gt;First thing we need to do is create a Kubernetes secret containing our SSL certificate and key&lt;/p&gt;
+
+&lt;p&gt;Add the following to a file, let&amp;rsquo;s call is apitest_ssl.md&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: v1
+data:
+  tls.crt: base64 encoded cert
+  tls.key: base64 encoded key
+kind: Secret
+metadata:
+  name: apitestsecret
+  namespace: default
+type: Opaque
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Then deploy it to Kubernetes with&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create -f ./apitest_ssl.md
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Modify the apitest.md file ingress specification for api.myfakedomain.io to reference this secret as follow :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;spec:
+  tls:
+  - hosts:
+    - &amp;quot;api.myfakedomain.io&amp;quot;
+    secretName: apitestsecret
+  rules:
+  - host: &amp;quot;api.myfakedomain.io&amp;quot;
+    http:
+      paths:
+      - path: /testapi
+        backend:
+          serviceName: testapi
+          servicePort: 8080
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now if you ask for the api.myfakedomain.io ingress rules&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl get ingress api.myfakedomain.io
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;you should get a similar reply to the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;Name:			api.myfakedomain.io
+Namespace:		default
+Address:		52.223.113.173,52.224.52.153
+Default backend:	default-http-backend:80 (&amp;lt;none&amp;gt;)
+TLS:
+  apitestsecret terminates api.myfakedomain.io
+Rules:
+  Host			Path	Backends
+  ----			----	--------
+  api.myfakedomain.io
+    			/testapi 	apitest:8080 (&amp;lt;none&amp;gt;)
+Annotations:
+  ssl-redirect:	true
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Running the curl command now against &lt;a href=&#34;https://api.fakedomain.io&#34;&gt;https://api.fakedomain.io&lt;/a&gt; should work without any warnings about
+insecure certificates.&lt;/p&gt;
+
+&lt;h4 id=&#34;path-rewrites:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Path rewrites&lt;/h4&gt;
+
+&lt;p&gt;Sometimes, there is a need to rewrite the path of a request to match up with the backend service. One such scenario might be,
+a API got developed and deployed, got changed over time, but there is still a need to be backwards
+compatibility on the API endpoints.&lt;/p&gt;
+
+&lt;p&gt;So using out deployed apitest api, lets setup a path rewrite. We have a &lt;code&gt;/new/get&lt;/code&gt; api path, but the api does
+not support it, it supports, &lt;code&gt;/get/new&lt;/code&gt; we now need to rewrite the path to that. Using a annotation with the ingress rules
+we can rewrite the path as follow :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: apitest
+  namespace: applications
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /new/get
+    kubernetes.io/ingress.class: &amp;quot;nginx&amp;quot;
+spec:
+  rules:
+  - host: &amp;quot;api.daemonza.io&amp;quot;
+    http:
+      paths:
+      - path: /get/new
+        backend:
+          serviceName: apitest
+          servicePort: 8080
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;sticky-sessions:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Sticky sessions&lt;/h4&gt;
+
+&lt;p&gt;Won&amp;rsquo;t it be nice if all applications got developed from the start with the 12-factor (&lt;a href=&#34;https://12factor.net/&#34;&gt;https://12factor.net/&lt;/a&gt;) methodology
+in mind? Unfortunately that does not always happen, and there is times when you have to be able
+to handle stateful application on your Kubernetes cluster.&lt;/p&gt;
+
+&lt;p&gt;Luckily for us the nginx-ingress-controller can handle sticky sessions as it bypass the service level and
+route directly the pods.&lt;/p&gt;
+
+&lt;p&gt;In order to get sticky sessions to work we need to create a configMap and enable it.&lt;/p&gt;
+
+&lt;p&gt;Save the following in a file, for now call it nginx.conf.md&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: v1
+data:
+  enable-sticky-sessions: &amp;quot;true&amp;quot;
+kind: ConfigMap
+metadata:
+  name: nginx-ingress-controller-conf
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;and load it with&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create -f ./nginx.conf.md
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The controller will reload on configuration change.&lt;/p&gt;
+
+&lt;p&gt;What this setting does it, instruct nginx to use the nginx-sticky-module-ng module
+(&lt;a href=&#34;https://bitbucket.org/nginx-goodies/nginx-sticky-module-ng&#34;&gt;https://bitbucket.org/nginx-goodies/nginx-sticky-module-ng&lt;/a&gt;) that&amp;rsquo;s bundled with the controller
+to handle all sticky sessions for us.&lt;/p&gt;
+
+&lt;p&gt;This is how the generated nginx configuration looks after enabling sticky sessions.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;    upstream default-testapi-8080 {
+        sticky name=SERVERID httponly path=/;
+        server 100.96.3.148:8080 max_fails=0 fail_timeout=0;
+        server 100.96.4.222:8080 max_fails=0 fail_timeout=0;
+        server 100.96.4.223:8080 max_fails=0 fail_timeout=0;   
+    }
+    
+    server {
+            server_name api.daemonza.io;
+            listen 80;
+
+            location /testapi {
+                   
+                proxy_pass http://default-testapi-8080;
+            }
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;proxy-protocol:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Proxy protocol&lt;/h4&gt;
+
+&lt;p&gt;Lots of times you need to pass a user&amp;rsquo;s IP address / hostname through to your application. A example would
+be, to have the hostname of the user in your application logs.&lt;/p&gt;
+
+&lt;p&gt;By default if you deploy the nginx-ingress-controller on AWS behind a ELB, the ELB will not pass along the hostname
+information, to solve this we need to enable &lt;code&gt;proxy protocol&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Add the following to your Nginx configMap.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;use-proxy-protocol: &amp;quot;true&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And in your nginx-ingress-controler service specification add the following annotation&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: &#39;*&#39;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This will make sure that the ELB that get&amp;rsquo;s created will have &lt;code&gt;proxy protocol&lt;/code&gt; enabled.
+If you prefer not to change the ELB from a Kubernetes Service, you can configure it manually on the ELB
+by following the documentation here : &lt;a href=&#34;http://docs.aws.amazon.com/elasticloadbalancing/latest/classic/enable-proxy-protocol.html&#34;&gt;http://docs.aws.amazon.com/elasticloadbalancing/latest/classic/enable-proxy-protocol.html&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;And excellent explanation of what proxy protocol is and how it works can be found at
+&lt;a href=&#34;http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt&#34;&gt;http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt&lt;/a&gt;&lt;/p&gt;
+
+&lt;h4 id=&#34;custom-nginx-configuration:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Custom Nginx configuration&lt;/h4&gt;
+
+&lt;p&gt;Sometimes there is a need to configure something in Nginx, that&amp;rsquo;s not possible through the nginx-ingress-controller
+configMap, annotations or ingress rules. In such cases, it&amp;rsquo;s possible to edit &lt;code&gt;nginx.tmpl&lt;/code&gt; Go template.&lt;/p&gt;
+
+&lt;p&gt;You can get the nginx.tmpl file from the nginx-ingress-controller Github repository or, copy it over from your
+nginx-ingress-controller pod. It&amp;rsquo;s located at &lt;code&gt;/etc/nginx/template/nginx.tmpl&lt;/code&gt;. Make your changes to it
+and then save it as a configMap as follow&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl create configmap nginx-template --from-file=nginx.tmpl=./nginx.tmpl
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;then mount the nginx-template configMap as a volume in the your nginx-ingress-controller
+specification.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;volumeMounts:
+   - name: nginx-template-volume
+     mountPath: /etc/nginx/template
+      readOnly: true
+volumes:
+   - name: nginx-template-volume
+     configMap:
+       name: nginx-template
+       items:
+       - key: nginx.tmpl
+         path: nginx.tmpl
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;conclusion:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Conclusion&lt;/h4&gt;
+
+&lt;p&gt;The Kubernetes ingress specifications combined with the nginx-ingress-controller gives a incredible flexible and
+powerful routing platform for your Kubernetes clusters. For more information about Kubernetes Ingress and the
+Nginx-ingress-controller visit :&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;https://kubernetes.io/docs/user-guide/ingress/&#34;&gt;https://kubernetes.io/docs/user-guide/ingress/&lt;/a&gt;
+&lt;a href=&#34;https://github.com/nginxinc/kubernetes-ingress/tree/master/nginx-controller&#34;&gt;https://github.com/nginxinc/kubernetes-ingress/tree/master/nginx-controller&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>Kubernetes on AWS</title>
