@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+  <title>
+    Using Helm to deploy to Kubernetes // 
+  </title>
+
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+<meta name="description" content="">
+<meta name="keywords" content="">
+<meta name="author" content="">
+<meta name="generator" content="Hugo 0.15" />
+
+  <meta property="og:title" content="Using Helm to deploy to Kubernetes" />
+<meta property="og:description" content="" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:url" content="https://daemonza.github.io/2017/02/20/using-helm-to-deploy-to-kubernetes/" />
+
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.5.0/base-min.css">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.5.0/pure-min.css">
+  
+  
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.5.0/grids-responsive-min.css">
+  
+  
+
+  <link rel="stylesheet" href="https://daemonza.github.io/css/redlounge.css">
+  <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href='//fonts.googleapis.com/css?family=Raleway:400,200,100,700,300,500,600,800' rel='stylesheet' type='text/css'>
+  <link href='//fonts.googleapis.com/css?family=Libre+Baskerville:400,700,400italic' rel='stylesheet' type='text/css'>
+
+  
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/touch-icon-144-precomposed.png">
+  <link rel="shortcut icon" type="image/x-icon" href="/img/favicon.png">
+
+  
+  <link href="" rel="alternate" type="application/rss+xml" title="" />
+
+    
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/styles/tomorrow-night-bright.min.css">
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
+
+
+  
+
+  
+
+  
+
+  
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', "UA-11463637-6", 'auto');
+  ga('send', 'pageview');
+</script>
+
+</head>
+
+<body>
+	
+
+	<div id="layout" class="pure-g">
+    <div class="sidebar pure-u-1 pure-u-md-1-4">
+  <div class="header">
+    
+
+	
+
+    <h1 class="brand-title">Daemonza</h1>
+    <h2 class="brand-tagline">clouds and stuff and bits and bobs</h2>
+
+    <nav class="nav">
+      <ul class="nav-list">
+        <li class="nav-item"><span class="nav-item-separator">//</span><a href="https://daemonza.github.io">Home</a></li>
+        
+      </ul>
+    </nav>
+
+    
+    <div class="social-buttons">
+      
+        
+        <a href="https://github.com/daemonza" target="_blank"><i class='fa fa-github'></i></a>
+        
+      
+        
+        <a href="https://nl.linkedin.com/in/werner-gillmer-202a79" target="_blank"><i class='fa fa-linkedin'></i></a>
+        
+      
+        
+        <a href="https://twitter.com/daemonza" target="_blank"><i class='fa fa-twitter'></i></a>
+        
+      
+      
+    </div>
+    
+
+  </div>
+</div>
+
+	
+	
+
+    <div class="content pure-u-1 pure-u-md-3-4">
+		<a name="top"></a>
+		
+
+		
+			
+		    <div id="toc" class="pure-u-1 pure-u-md-1-4">
+				<small class="toc-label">Contents</small>
+		   	 	<nav id="TableOfContents">
+<ul>
+<li>
+<ul>
+<li>
+<ul>
+<li>
+<ul>
+<li><a href="#introduction:45cb11bfa871ca77409aa8598e952413">Introduction</a></li>
+<li><a href="#preface:45cb11bfa871ca77409aa8598e952413">Preface</a></li>
+<li><a href="#building-a-helm-chart:45cb11bfa871ca77409aa8598e952413">Building a Helm chart</a></li>
+<li><a href="#setting-up-helm-repository:45cb11bfa871ca77409aa8598e952413">Setting up Helm repository</a></li>
+<li><a href="#using-a-helm-repository:45cb11bfa871ca77409aa8598e952413">Using a Helm repository</a></li>
+<li><a href="#ci-cd:45cb11bfa871ca77409aa8598e952413">CI / CD</a></li>
+<li><a href="#conclusion:45cb11bfa871ca77409aa8598e952413">Conclusion</a></li>
+</ul></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+		    </div>
+		    
+	    
+  		<section class="post">
+            <h1 class="post-title">
+              <a href="/2017/02/20/using-helm-to-deploy-to-kubernetes/">Using Helm to deploy to Kubernetes</a>
+            </h1>
+            <h3 class="post-subtitle">
+            	
+            </h3>
+            
+            	<span class="post-date">
+                	<span class="post-date-day"><sup>20</sup></span><span class="post-date-separator">/</span><span class="post-date-month">Feb</span> <span class="post-date-year">2017</span>
+            	</span>
+            	
+            
+            	
+            
+
+			
+			
+
+			
+
+			
+
+            
+
+<h4 id="introduction:45cb11bfa871ca77409aa8598e952413">Introduction</h4>
+
+<p>In this post I will be showing how to use Helm (<a href="https://helm.sh">https://helm.sh</a>) to build and deploy your own charts to a Kubernetes
+cluster.</p>
+
+<h4 id="preface:45cb11bfa871ca77409aa8598e952413">Preface</h4>
+
+<p>What is Helm? Well, think of it as the apt-get / yum of Kubernetes, it&rsquo;s a package manager for Kubernetes
+developed by the guys from Deis (<a href="https://deis.com/">https://deis.com/</a>). If you deploy applications to Kubernetes, Helm makes
+it incredibly easy to version those deployments, package it, make a release of it, and deploy, delete, upgrade
+and even rollback those deployments as charts. Charts being the terminology that <code>helm</code> use for package of
+configured Kubernetes resources.</p>
+
+<p>There is a second part to Helm and that is <code>Tiller</code>. Tiller is the Helm server side that runs in Kubernetes
+and handles the Helm packages.</p>
+
+<p>So before we can use <code>helm</code> with a kubernetes cluster, you need to install <code>tiller</code> on it. It&rsquo;s as easy
+as running :</p>
+
+<pre><code>helm init
+</code></pre>
+
+<h4 id="building-a-helm-chart:45cb11bfa871ca77409aa8598e952413">Building a Helm chart</h4>
+
+<p>Let&rsquo;s see Helm in action, using a small little Go test api I created specifically for testing use cases like this, let&rsquo;s
+build a helm chart of it.</p>
+
+<pre><code>git clone https://github.com/daemonza/testapi.git; cd testapi
+</code></pre>
+
+<p>First create a skeleton structure chart</p>
+
+<pre><code>helm create testapi-chart
+</code></pre>
+
+<p>This will create a <code>testapi-chart</code> directory. Inside this directory the three files we are the most interested in for is
+Chart.yaml, values.yaml and NOTES.txt.</p>
+
+<ul>
+<li>Chart.yaml describes the chart, as in it&rsquo;s name, description and version.</li>
+<li>values.yaml is stores variables for the template files templates directory. If you have more complex deployment needs, that
+falls outside the default templates capability, edit the files in this directory. They are normal Go templates, Hugo (<a href="https://gohugo.io">https://gohugo.io</a>)
+which btw powers this blog, have a nice Go template primer (<a href="https://gohugo.io/templates/go-templates/">https://gohugo.io/templates/go-templates/</a>), if you need more information
+on how to work with Go templates.</li>
+<li>NOTES.txt is used to give information after deployment to the user that deployed the chart. For example it might explain how
+to use the chart, or list default settings, etc. For this post I will keep the default message in it.</li>
+</ul>
+
+<p>Open Chart.yaml and fill out the details of the application your deploying. Using the <code>testapi</code> as a example, this is
+how my Chart.yaml looks like :</p>
+
+<pre><code>apiVersion: v1
+description: A simple api for testing and debugging
+name: testapi-chart
+version: 0.0.1
+</code></pre>
+
+<p>Now open <code>values.yaml</code> and edit it as needed. Again, using the <code>testapi</code> as a example this is how my <code>values.yaml</code> file
+looks like.</p>
+
+<pre><code>replicaCount: 2
+image:
+  repository: daemonza/testapi
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  name: testapi
+  type: ClusterIP
+  externalPort: 80
+  internalPort: 80
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+</code></pre>
+
+<p>Run</p>
+
+<pre><code> helm lint
+</code></pre>
+
+<p>in your testapi_chart directory to make sure everything is ok.
+If everything is good, you can package the chart as a release by running :</p>
+
+<pre><code>helm package testapi-chart --debug
+</code></pre>
+
+<p>I like to add the <code>--debug</code> flag to see the output of the packaged chart.
+Output should look similar to the following</p>
+
+<pre><code>Saved /Users/daemonza/testapi/testapi-chart/testapi-chart-0.0.1.tgz to current directory
+Saved /Users/daemonza/testapi/testapi-chart/testapi-chart-0.0.1.tgz to /Users/daemonza/.helm/repository/local
+</code></pre>
+
+<p>From that we can see that the chart is placed in our current directory as well as in our local
+helm repository.
+To deploy this release, we can point helm directly to the chart file as follows :</p>
+
+<pre><code>helm install testapi-chart-0.1.0.tgz
+</code></pre>
+
+<p>And your output should look similar to the following :</p>
+
+<pre><code>NAME:   ordered-quoll
+LAST DEPLOYED: Wed Mar  1 09:39:48 2017
+NAMESPACE: default
+STATUS: DEPLOYED
+
+RESOURCES:
+==&gt; v1/Service
+NAME                       CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+ordered-quoll-testapi-ch   10.0.0.133   &lt;none&gt;        80/TCP    0s
+
+==&gt; extensions/Deployment
+NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+ordered-quoll-testapi-ch   2         2         2            0           0s
+
+
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace default -l &quot;app=ordered-quoll-testapi-ch&quot; -o jsonpath=&quot;{.items[0].metadata.name}&quot;)
+  echo &quot;Visit http://127.0.0.1:8080 to use your application&quot;
+  kubectl port-forward $POD_NAME 8080:80
+</code></pre>
+
+<p>From the above we can see that a <code>deployment</code> was created in kubernetes, the testapi got scaled to two pods and a <code>service</code>
+got created to expose the <code>deployment</code> on the cluster IP on port 80. And the NOTES.txt file tells us how to access the
+pod.</p>
+
+<p>List the deployed packages with their release versions by running :</p>
+
+<pre><code>helm ls
+</code></pre>
+
+<p>Which should return output similar to the following</p>
+
+<pre><code>NAME        	REVISION	UPDATED                 	STATUS  	CHART
+ordered-quoll	1       	Wed Mar  1 11:48:52 2017	DEPLOYED	testapi-chart-0.1.0
+</code></pre>
+
+<p>Modify the <code>Chart.yaml</code> file and change the version from 0.1.0 to 0.1.1 package and deploy the 0.1.1 chart.
+Running <code>helm ls</code> again now shows us that we have two packages of the testapi deployed</p>
+
+<pre><code>ordered-quoll	1       	Wed Mar  1 11:48:52 2017	DEPLOYED	testapi-chart-0.1.0
+wishful-ibis	1       	Wed Mar  1 12:03:31 2017	DEPLOYED	testapi-chart-0.1.1
+</code></pre>
+
+<p>Let&rsquo;s confirm that the testapi indeed deployed, and that there is two versions of it running :</p>
+
+<pre><code>kubectl get deployments
+</code></pre>
+
+<p>You should have output similar to :</p>
+
+<pre><code>NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+ordered-quoll-testapi-cha   1         1         1            1          11m
+wishful-ibis-testapi-cha    1         1         1            1           3m
+</code></pre>
+
+<p>Time to get rid of the older 0.1.0 deployment of the testapi chart.
+Using it&rsquo;s package name from <code>helm ls</code> run :</p>
+
+<pre><code>helm delete ordered-quoll
+</code></pre>
+
+<p>Confirm again with <code>kubectl get deployments</code> that it really is removed.
+Expected output similar to :</p>
+
+<pre><code>NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+wishful-ibis-testapi-cha   1         1         1            1           7m
+</code></pre>
+
+<p>As we can see the <code>ordered-quoll</code> 0.1.0 version is removed. But what happens if we want to
+go back. Imagine this scenario, we deployed a new version of a application, and for some reason its
+got a problem and we need to rollback to the previous version. No worries, <code>helm</code> got our back.
+Simply run</p>
+
+<pre><code>helm rollback ordered-quoll 1
+</code></pre>
+
+<p>Which means we want to rollback the testapi package ordered-quoll one revision back.</p>
+
+<p>Expected output</p>
+
+<pre><code>Rollback was a success! Happy Helming!
+</code></pre>
+
+<p>But what, if you cannot remember what the name was of a deleted package? Or just want to see all the packages that&rsquo;s been
+deleted? No problem, run :</p>
+
+<pre><code>helm ls --deleted
+</code></pre>
+
+<p>And if you want to see it ordered by date just add a <code>-d</code></p>
+
+<p>We have really gone a round about way of deploying packages so far with helm, normally you would only want to
+upgrade a package, instead of deploying a new version alongside it, unless off course your following a blue / green
+style deployment process.</p>
+
+<p>Let&rsquo;s test upgrading a release. Open the testapi project, edit the Chart.yaml as a example and change the description,
+and version number, package the release with <code>helm package .</code>, but now instead of using <code>helm install</code> run</p>
+
+<pre><code>helm upgrade ordered-quoll .
+</code></pre>
+
+<p>This will upgrade our <code>ordered-quoll</code> release to the changes we just made. Running <code>helm ls</code> now, you
+should see the new version next to <code>ordered-quoll</code>. And off course we can rollback this release as before.</p>
+
+<p>For more information on using  <code>Helm</code> look at
+<a href="https://github.com/kubernetes/helm/blob/master/docs/using_helm.md">https://github.com/kubernetes/helm/blob/master/docs/using_helm.md</a></p>
+
+<p>While this works well, it would be nicer to put our <code>chart</code> in a Helm repository, as it&rsquo;s then easy to share
+the chart or access it from other clusters, etc.</p>
+
+<h4 id="setting-up-helm-repository:45cb11bfa871ca77409aa8598e952413">Setting up Helm repository</h4>
+
+<p>A Helm repository is nothing more than just a web server that&rsquo;s able to serve a index.yaml file
+and chart files, which is really just tar.gz file containing the generated kubernetes resource manifest files from our helm chart
+templates. So almost any web server will do. For local testing
+you can also use the helm command itself. Here is a example of helm serving the charts from a <code>charts</code>
+directory.</p>
+
+<pre><code>helm serve --repo-path ./charts
+</code></pre>
+
+<p>Problem is you need to get your charts onto the web server somehow, and there is a myriad amount of solutions
+on how to do it, it can as a example be as simple as just using <code>scp</code> to get your chart to the web server, or setting up
+Caddy(<a href="https://caddyserver.com/">https://caddyserver.com/</a>) with the Upload plugin(<a href="https://caddyserver.com/docs/upload">https://caddyserver.com/docs/upload</a>). You can also use AWS S3 or
+a Google GCS bucket as well to host a chart repository, which does make uploading easier, by using the google cloud command
+line utility or the UI or for S3 use one of the many S3 tools out there. I personally prefer s3cmd (<a href="http://s3tools.org/s3cmd">http://s3tools.org/s3cmd</a>)
+for uploading files to S3.</p>
+
+<p>However I wanted something a little simpler, that generates the Helm index for me, without me having to do it by hand, and also
+be able to host it myself in a Kubernetes cluster, so I wrote a  small <code>Go</code> server called <code>Helmet</code> to act as my helm
+repository. It&rsquo;s basically just a web server, to which you can upload chart files using something like <code>curl</code> and it then
+handles the repository indexing for you using helm in the backend.</p>
+
+<p>You can find out more about <code>Helmet</code> at
+<a href="https://github.com/daemonza/helmet">https://github.com/daemonza/helmet</a></p>
+
+<h4 id="using-a-helm-repository:45cb11bfa871ca77409aa8598e952413">Using a Helm repository</h4>
+
+<p>Using <code>Helmet</code> as our helm repository, let&rsquo;s deploy it to our Kubernetes cluster and then add a chart.
+And off course we can deploy <code>Helmet</code> with Helm :D</p>
+
+<pre><code>git clone https://github.com/daemonza/helmet.git; cd helmet/helmet-chart
+helm package . --debug
+</code></pre>
+
+<p>A helmet chart should be created, in my case it is <code>helmet-chart-0.0.1.tgz</code></p>
+
+<p>Deploy the same way we deployed the testapi.</p>
+
+<pre><code>helm install helmet-chart-0.0.1.tgz --debug
+</code></pre>
+
+<p>For this blog post, I deployed everything to Kubernetes Minikube(<a href="https://github.com/kubernetes/minikube">https://github.com/kubernetes/minikube</a>)
+So using minikube, let&rsquo;s see how we can access <code>helmet</code></p>
+
+<pre><code>HELMET=(`kubectl get services | awk '/helmet/ {print $1}'`)
+minikube service $HELMET --url
+</code></pre>
+
+<p>Which gives me back <code>http://192.168.99.100:31162</code>. Using this URL, let&rsquo;s add it as a helm repository.</p>
+
+<pre><code>helm repo add helmet http://192.168.99.100:31162/charts/
+</code></pre>
+
+<p>And confirm that our <code>helmet</code> repo is there by running <code>helm repo list</code>.
+You should see the following :</p>
+
+<pre><code>NAME  	URL
+stable	https://kubernetes-charts.storage.googleapis.com/
+helmet	http://192.168.99.100:31162/charts/
+</code></pre>
+
+<p>We can now add our testapi chart to this <code>helmet</code> repository with :</p>
+
+<pre><code>curl -v -T testapi-chart-0.1.1.tgz -X PUT http://192.168.99.100:31162/upload/
+</code></pre>
+
+<p>We can confirm that the chart is uploaded and the helm repo index got created by running</p>
+
+<pre><code>curl http://192.168.99.100:31162/charts/index.yaml
+</code></pre>
+
+<p>Which will give us the following output :</p>
+
+<pre><code>apiVersion: v1
+entries:
+  testapi-chart:
+  - apiVersion: v1
+    created: 2017-03-01T12:11:09.746867088Z
+    description: A Helm chart for Kubernetes
+    digest: fe0c17d87b523c91cc59bd1e4d2f997defb2a215c4cc0fc02a1725922471e88a
+    name: testapi-chart
+    urls:
+    - http://masked-macaw-helmet-char:1323/charts/testapi-chart-0.1.1.tgz
+    version: 0.1.1
+generated: 2017-03-01T12:11:09.746407601Z
+</code></pre>
+
+<p>We can now search for the testapi, across all our repositories.</p>
+
+<pre><code>helm search testapi
+</code></pre>
+
+<p>Expected output :</p>
+
+<pre><code>NAME                	VERSION	DESCRIPTION
+helmet/testapi-chart	0.1.1  	A Helm chart for Kubernetes
+</code></pre>
+
+<p>Let&rsquo;s try searching for something else. Searching for Jenkins gives us this</p>
+
+<pre><code>NAME          	VERSION	DESCRIPTION
+stable/jenkins	0.1.14 	Open source continuous integration server. It s...
+</code></pre>
+
+<p>Which we can see comes from the <code>stable</code> repository. Very nice! Have I mentioned I love helm? :D
+Now, to continue  let&rsquo;s install the testapi from our <code>helmet</code> repository :</p>
+
+<pre><code>helm install helmet/testapi-chart
+</code></pre>
+
+<p>And that&rsquo;s how simple it is to use helm repositories. We can now use this <code>helmet</code> helm repository from anywhere
+upload charts to and deploy from.</p>
+
+<h4 id="ci-cd:45cb11bfa871ca77409aa8598e952413">CI / CD</h4>
+
+<p>Helm makes continuous integration and deployment a lot easier with Kubernetes. For example one strategy of doing it could
+be, matching up your git branches to helm repositories.
+Imagine you are busy building a application, and you have two branches (develop, master), master is your stable
+branch and anything there could be deployed to a production kubernetes cluster.</p>
+
+<p>Example of your develop and stable helm repositories :</p>
+
+<pre><code>helm develop add helmet http://repositoryone:31162/charts/
+helm master add helmet http://repositorythree:31162/charts/
+</code></pre>
+
+<p>Write your code on a develop branch, and on a git push, Jenkins picks up that there was a change, build your code, run your
+tests, and create a helm chart and uploads that chart to your <code>develop</code> helm repository. From there you can then
+easily deploy it into your development Kubernetes cluster (minikube for example). A push to master might trigger
+Jenkins to deploy the code as a stable release to your master repository and then deploy it to your production kubernetes
+cluster. Using a simple setup like this it becomes easy to deploy either develop level quality packages or stable
+packages to kubernetes clusters.</p>
+
+<p>For Jenkins(<a href="https://jenkins.io/">https://jenkins.io/</a>) you can use the this plugin(<a href="https://github.com/jenkinsci/kubernetes-ci-plugin">https://github.com/jenkinsci/kubernetes-ci-plugin</a>) for
+easy helm usage.</p>
+
+<h4 id="conclusion:45cb11bfa871ca77409aa8598e952413">Conclusion</h4>
+
+<p>Helm makes doing reliable reproducible deployments ridiculously easy to Kubernetes, and I cannot recommend enough
+to make it part of your standard way of working with Kubernetes.</p>
+
+	
+			
+
+			
+				<div class="tags-list">
+					<span class="dark-red">Tags</span><span class="decorative-marker">//</span>
+					
+	                <a class="post-tag post-tag-kubernetes" href="https://daemonza.github.io/tags/kubernetes">Kubernetes</a>,
+	                
+	                <a class="post-tag post-tag-helm" href="https://daemonza.github.io/tags/helm">Helm</a>,
+	                
+	                <a class="post-tag post-tag-ci/cd" href="https://daemonza.github.io/tags/ci/cd">CI/CD</a>,
+	                
+				</div>
+			
+
+			
+				<div class="paging">
+					<span class="paging-label">More Reading</span>
+					
+
+					
+					<div class="paging-older">
+						<span class="dark-red">Older</span><span class="decorative-marker">//</span>
+			            <a class="paging-link" href="/2017/02/13/kubernetes-nginx-ingress-controller/">Kubernetes nginx-ingress-controller</a>
+		            </div>
+		            
+	            </div>
+            
+          </section>
+          
+          	<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'daemonza-github-io';
+    var disqus_identifier = 'https:\/\/daemonza.github.io\/2017\/02\/20\/using-helm-to-deploy-to-kubernetes\/';
+    var disqus_title = 'Using Helm to deploy to Kubernetes';
+    var disqus_url = 'https:\/\/daemonza.github.io\/2017\/02\/20\/using-helm-to-deploy-to-kubernetes\/';
+
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+          
+        
+      <div class="footer">
+	<hr class="thin" />
+	<div class="pure-menu pure-menu-horizontal pure-menu-open">
+		<ul class="footer-menu">
+		
+		</ul>
+	</div>
+
+	<p>&copy; 2017. All rights reserved.</p>
+</div>
+    </div>
+  </div>
+	
+
+	
+
+  
+</body>
+</html>

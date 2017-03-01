@@ -9,8 +9,377 @@
     <managingEditor>werner.gillmer@gmail.com (Werner Gillmer)</managingEditor>
     <webMaster>werner.gillmer@gmail.com (Werner Gillmer)</webMaster>
     <copyright>(c) 2017 Werner Gillmer</copyright>
-    <lastBuildDate>Mon, 13 Feb 2017 09:42:32 +0100</lastBuildDate>
+    <lastBuildDate>Mon, 20 Feb 2017 15:21:26 +0100</lastBuildDate>
     <atom:link href="https://daemonza.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Using Helm to deploy to Kubernetes</title>
+      <link>https://daemonza.github.io/2017/02/20/using-helm-to-deploy-to-kubernetes/</link>
+      <pubDate>Mon, 20 Feb 2017 15:21:26 +0100</pubDate>
+      <author>werner.gillmer@gmail.com (Werner Gillmer)</author>
+      <guid>https://daemonza.github.io/2017/02/20/using-helm-to-deploy-to-kubernetes/</guid>
+      <description>
+
+&lt;h4 id=&#34;introduction:45cb11bfa871ca77409aa8598e952413&#34;&gt;Introduction&lt;/h4&gt;
+
+&lt;p&gt;In this post I will be showing how to use Helm (&lt;a href=&#34;https://helm.sh&#34;&gt;https://helm.sh&lt;/a&gt;) to build and deploy your own charts to a Kubernetes
+cluster.&lt;/p&gt;
+
+&lt;h4 id=&#34;preface:45cb11bfa871ca77409aa8598e952413&#34;&gt;Preface&lt;/h4&gt;
+
+&lt;p&gt;What is Helm? Well, think of it as the apt-get / yum of Kubernetes, it&amp;rsquo;s a package manager for Kubernetes
+developed by the guys from Deis (&lt;a href=&#34;https://deis.com/&#34;&gt;https://deis.com/&lt;/a&gt;). If you deploy applications to Kubernetes, Helm makes
+it incredibly easy to version those deployments, package it, make a release of it, and deploy, delete, upgrade
+and even rollback those deployments as charts. Charts being the terminology that &lt;code&gt;helm&lt;/code&gt; use for package of
+configured Kubernetes resources.&lt;/p&gt;
+
+&lt;p&gt;There is a second part to Helm and that is &lt;code&gt;Tiller&lt;/code&gt;. Tiller is the Helm server side that runs in Kubernetes
+and handles the Helm packages.&lt;/p&gt;
+
+&lt;p&gt;So before we can use &lt;code&gt;helm&lt;/code&gt; with a kubernetes cluster, you need to install &lt;code&gt;tiller&lt;/code&gt; on it. It&amp;rsquo;s as easy
+as running :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm init
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;building-a-helm-chart:45cb11bfa871ca77409aa8598e952413&#34;&gt;Building a Helm chart&lt;/h4&gt;
+
+&lt;p&gt;Let&amp;rsquo;s see Helm in action, using a small little Go test api I created specifically for testing use cases like this, let&amp;rsquo;s
+build a helm chart of it.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;git clone https://github.com/daemonza/testapi.git; cd testapi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;First create a skeleton structure chart&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm create testapi-chart
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This will create a &lt;code&gt;testapi-chart&lt;/code&gt; directory. Inside this directory the three files we are the most interested in for is
+Chart.yaml, values.yaml and NOTES.txt.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Chart.yaml describes the chart, as in it&amp;rsquo;s name, description and version.&lt;/li&gt;
+&lt;li&gt;values.yaml is stores variables for the template files templates directory. If you have more complex deployment needs, that
+falls outside the default templates capability, edit the files in this directory. They are normal Go templates, Hugo (&lt;a href=&#34;https://gohugo.io&#34;&gt;https://gohugo.io&lt;/a&gt;)
+which btw powers this blog, have a nice Go template primer (&lt;a href=&#34;https://gohugo.io/templates/go-templates/&#34;&gt;https://gohugo.io/templates/go-templates/&lt;/a&gt;), if you need more information
+on how to work with Go templates.&lt;/li&gt;
+&lt;li&gt;NOTES.txt is used to give information after deployment to the user that deployed the chart. For example it might explain how
+to use the chart, or list default settings, etc. For this post I will keep the default message in it.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Open Chart.yaml and fill out the details of the application your deploying. Using the &lt;code&gt;testapi&lt;/code&gt; as a example, this is
+how my Chart.yaml looks like :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: v1
+description: A simple api for testing and debugging
+name: testapi-chart
+version: 0.0.1
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now open &lt;code&gt;values.yaml&lt;/code&gt; and edit it as needed. Again, using the &lt;code&gt;testapi&lt;/code&gt; as a example this is how my &lt;code&gt;values.yaml&lt;/code&gt; file
+looks like.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;replicaCount: 2
+image:
+  repository: daemonza/testapi
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  name: testapi
+  type: ClusterIP
+  externalPort: 80
+  internalPort: 80
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Run&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt; helm lint
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;in your testapi_chart directory to make sure everything is ok.
+If everything is good, you can package the chart as a release by running :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm package testapi-chart --debug
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;I like to add the &lt;code&gt;--debug&lt;/code&gt; flag to see the output of the packaged chart.
+Output should look similar to the following&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;Saved /Users/daemonza/testapi/testapi-chart/testapi-chart-0.0.1.tgz to current directory
+Saved /Users/daemonza/testapi/testapi-chart/testapi-chart-0.0.1.tgz to /Users/daemonza/.helm/repository/local
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;From that we can see that the chart is placed in our current directory as well as in our local
+helm repository.
+To deploy this release, we can point helm directly to the chart file as follows :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm install testapi-chart-0.1.0.tgz
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And your output should look similar to the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME:   ordered-quoll
+LAST DEPLOYED: Wed Mar  1 09:39:48 2017
+NAMESPACE: default
+STATUS: DEPLOYED
+
+RESOURCES:
+==&amp;gt; v1/Service
+NAME                       CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+ordered-quoll-testapi-ch   10.0.0.133   &amp;lt;none&amp;gt;        80/TCP    0s
+
+==&amp;gt; extensions/Deployment
+NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+ordered-quoll-testapi-ch   2         2         2            0           0s
+
+
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace default -l &amp;quot;app=ordered-quoll-testapi-ch&amp;quot; -o jsonpath=&amp;quot;{.items[0].metadata.name}&amp;quot;)
+  echo &amp;quot;Visit http://127.0.0.1:8080 to use your application&amp;quot;
+  kubectl port-forward $POD_NAME 8080:80
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;From the above we can see that a &lt;code&gt;deployment&lt;/code&gt; was created in kubernetes, the testapi got scaled to two pods and a &lt;code&gt;service&lt;/code&gt;
+got created to expose the &lt;code&gt;deployment&lt;/code&gt; on the cluster IP on port 80. And the NOTES.txt file tells us how to access the
+pod.&lt;/p&gt;
+
+&lt;p&gt;List the deployed packages with their release versions by running :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm ls
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Which should return output similar to the following&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME        	REVISION	UPDATED                 	STATUS  	CHART
+ordered-quoll	1       	Wed Mar  1 11:48:52 2017	DEPLOYED	testapi-chart-0.1.0
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Modify the &lt;code&gt;Chart.yaml&lt;/code&gt; file and change the version from 0.1.0 to 0.1.1 package and deploy the 0.1.1 chart.
+Running &lt;code&gt;helm ls&lt;/code&gt; again now shows us that we have two packages of the testapi deployed&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;ordered-quoll	1       	Wed Mar  1 11:48:52 2017	DEPLOYED	testapi-chart-0.1.0
+wishful-ibis	1       	Wed Mar  1 12:03:31 2017	DEPLOYED	testapi-chart-0.1.1
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let&amp;rsquo;s confirm that the testapi indeed deployed, and that there is two versions of it running :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;kubectl get deployments
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You should have output similar to :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+ordered-quoll-testapi-cha   1         1         1            1          11m
+wishful-ibis-testapi-cha    1         1         1            1           3m
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Time to get rid of the older 0.1.0 deployment of the testapi chart.
+Using it&amp;rsquo;s package name from &lt;code&gt;helm ls&lt;/code&gt; run :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm delete ordered-quoll
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Confirm again with &lt;code&gt;kubectl get deployments&lt;/code&gt; that it really is removed.
+Expected output similar to :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+wishful-ibis-testapi-cha   1         1         1            1           7m
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;As we can see the &lt;code&gt;ordered-quoll&lt;/code&gt; 0.1.0 version is removed. But what happens if we want to
+go back. Imagine this scenario, we deployed a new version of a application, and for some reason its
+got a problem and we need to rollback to the previous version. No worries, &lt;code&gt;helm&lt;/code&gt; got our back.
+Simply run&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm rollback ordered-quoll 1
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Which means we want to rollback the testapi package ordered-quoll one revision back.&lt;/p&gt;
+
+&lt;p&gt;Expected output&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;Rollback was a success! Happy Helming!
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;But what, if you cannot remember what the name was of a deleted package? Or just want to see all the packages that&amp;rsquo;s been
+deleted? No problem, run :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm ls --deleted
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And if you want to see it ordered by date just add a &lt;code&gt;-d&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We have really gone a round about way of deploying packages so far with helm, normally you would only want to
+upgrade a package, instead of deploying a new version alongside it, unless off course your following a blue / green
+style deployment process.&lt;/p&gt;
+
+&lt;p&gt;Let&amp;rsquo;s test upgrading a release. Open the testapi project, edit the Chart.yaml as a example and change the description,
+and version number, package the release with &lt;code&gt;helm package .&lt;/code&gt;, but now instead of using &lt;code&gt;helm install&lt;/code&gt; run&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm upgrade ordered-quoll .
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This will upgrade our &lt;code&gt;ordered-quoll&lt;/code&gt; release to the changes we just made. Running &lt;code&gt;helm ls&lt;/code&gt; now, you
+should see the new version next to &lt;code&gt;ordered-quoll&lt;/code&gt;. And off course we can rollback this release as before.&lt;/p&gt;
+
+&lt;p&gt;For more information on using  &lt;code&gt;Helm&lt;/code&gt; look at
+&lt;a href=&#34;https://github.com/kubernetes/helm/blob/master/docs/using_helm.md&#34;&gt;https://github.com/kubernetes/helm/blob/master/docs/using_helm.md&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;While this works well, it would be nicer to put our &lt;code&gt;chart&lt;/code&gt; in a Helm repository, as it&amp;rsquo;s then easy to share
+the chart or access it from other clusters, etc.&lt;/p&gt;
+
+&lt;h4 id=&#34;setting-up-helm-repository:45cb11bfa871ca77409aa8598e952413&#34;&gt;Setting up Helm repository&lt;/h4&gt;
+
+&lt;p&gt;A Helm repository is nothing more than just a web server that&amp;rsquo;s able to serve a index.yaml file
+and chart files, which is really just tar.gz file containing the generated kubernetes resource manifest files from our helm chart
+templates. So almost any web server will do. For local testing
+you can also use the helm command itself. Here is a example of helm serving the charts from a &lt;code&gt;charts&lt;/code&gt;
+directory.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm serve --repo-path ./charts
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Problem is you need to get your charts onto the web server somehow, and there is a myriad amount of solutions
+on how to do it, it can as a example be as simple as just using &lt;code&gt;scp&lt;/code&gt; to get your chart to the web server, or setting up
+Caddy(&lt;a href=&#34;https://caddyserver.com/&#34;&gt;https://caddyserver.com/&lt;/a&gt;) with the Upload plugin(&lt;a href=&#34;https://caddyserver.com/docs/upload&#34;&gt;https://caddyserver.com/docs/upload&lt;/a&gt;). You can also use AWS S3 or
+a Google GCS bucket as well to host a chart repository, which does make uploading easier, by using the google cloud command
+line utility or the UI or for S3 use one of the many S3 tools out there. I personally prefer s3cmd (&lt;a href=&#34;http://s3tools.org/s3cmd&#34;&gt;http://s3tools.org/s3cmd&lt;/a&gt;)
+for uploading files to S3.&lt;/p&gt;
+
+&lt;p&gt;However I wanted something a little simpler, that generates the Helm index for me, without me having to do it by hand, and also
+be able to host it myself in a Kubernetes cluster, so I wrote a  small &lt;code&gt;Go&lt;/code&gt; server called &lt;code&gt;Helmet&lt;/code&gt; to act as my helm
+repository. It&amp;rsquo;s basically just a web server, to which you can upload chart files using something like &lt;code&gt;curl&lt;/code&gt; and it then
+handles the repository indexing for you using helm in the backend.&lt;/p&gt;
+
+&lt;p&gt;You can find out more about &lt;code&gt;Helmet&lt;/code&gt; at
+&lt;a href=&#34;https://github.com/daemonza/helmet&#34;&gt;https://github.com/daemonza/helmet&lt;/a&gt;&lt;/p&gt;
+
+&lt;h4 id=&#34;using-a-helm-repository:45cb11bfa871ca77409aa8598e952413&#34;&gt;Using a Helm repository&lt;/h4&gt;
+
+&lt;p&gt;Using &lt;code&gt;Helmet&lt;/code&gt; as our helm repository, let&amp;rsquo;s deploy it to our Kubernetes cluster and then add a chart.
+And off course we can deploy &lt;code&gt;Helmet&lt;/code&gt; with Helm :D&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;git clone https://github.com/daemonza/helmet.git; cd helmet/helmet-chart
+helm package . --debug
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;A helmet chart should be created, in my case it is &lt;code&gt;helmet-chart-0.0.1.tgz&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Deploy the same way we deployed the testapi.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm install helmet-chart-0.0.1.tgz --debug
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;For this blog post, I deployed everything to Kubernetes Minikube(&lt;a href=&#34;https://github.com/kubernetes/minikube&#34;&gt;https://github.com/kubernetes/minikube&lt;/a&gt;)
+So using minikube, let&amp;rsquo;s see how we can access &lt;code&gt;helmet&lt;/code&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;HELMET=(`kubectl get services | awk &#39;/helmet/ {print $1}&#39;`)
+minikube service $HELMET --url
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Which gives me back &lt;code&gt;http://192.168.99.100:31162&lt;/code&gt;. Using this URL, let&amp;rsquo;s add it as a helm repository.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm repo add helmet http://192.168.99.100:31162/charts/
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And confirm that our &lt;code&gt;helmet&lt;/code&gt; repo is there by running &lt;code&gt;helm repo list&lt;/code&gt;.
+You should see the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME  	URL
+stable	https://kubernetes-charts.storage.googleapis.com/
+helmet	http://192.168.99.100:31162/charts/
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We can now add our testapi chart to this &lt;code&gt;helmet&lt;/code&gt; repository with :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;curl -v -T testapi-chart-0.1.1.tgz -X PUT http://192.168.99.100:31162/upload/
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We can confirm that the chart is uploaded and the helm repo index got created by running&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;curl http://192.168.99.100:31162/charts/index.yaml
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Which will give us the following output :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;apiVersion: v1
+entries:
+  testapi-chart:
+  - apiVersion: v1
+    created: 2017-03-01T12:11:09.746867088Z
+    description: A Helm chart for Kubernetes
+    digest: fe0c17d87b523c91cc59bd1e4d2f997defb2a215c4cc0fc02a1725922471e88a
+    name: testapi-chart
+    urls:
+    - http://masked-macaw-helmet-char:1323/charts/testapi-chart-0.1.1.tgz
+    version: 0.1.1
+generated: 2017-03-01T12:11:09.746407601Z
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We can now search for the testapi, across all our repositories.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm search testapi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Expected output :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME                	VERSION	DESCRIPTION
+helmet/testapi-chart	0.1.1  	A Helm chart for Kubernetes
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let&amp;rsquo;s try searching for something else. Searching for Jenkins gives us this&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;NAME          	VERSION	DESCRIPTION
+stable/jenkins	0.1.14 	Open source continuous integration server. It s...
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Which we can see comes from the &lt;code&gt;stable&lt;/code&gt; repository. Very nice! Have I mentioned I love helm? :D
+Now, to continue  let&amp;rsquo;s install the testapi from our &lt;code&gt;helmet&lt;/code&gt; repository :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm install helmet/testapi-chart
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And that&amp;rsquo;s how simple it is to use helm repositories. We can now use this &lt;code&gt;helmet&lt;/code&gt; helm repository from anywhere
+upload charts to and deploy from.&lt;/p&gt;
+
+&lt;h4 id=&#34;ci-cd:45cb11bfa871ca77409aa8598e952413&#34;&gt;CI / CD&lt;/h4&gt;
+
+&lt;p&gt;Helm makes continuous integration and deployment a lot easier with Kubernetes. For example one strategy of doing it could
+be, matching up your git branches to helm repositories.
+Imagine you are busy building a application, and you have two branches (develop, master), master is your stable
+branch and anything there could be deployed to a production kubernetes cluster.&lt;/p&gt;
+
+&lt;p&gt;Example of your develop and stable helm repositories :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;helm develop add helmet http://repositoryone:31162/charts/
+helm master add helmet http://repositorythree:31162/charts/
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Write your code on a develop branch, and on a git push, Jenkins picks up that there was a change, build your code, run your
+tests, and create a helm chart and uploads that chart to your &lt;code&gt;develop&lt;/code&gt; helm repository. From there you can then
+easily deploy it into your development Kubernetes cluster (minikube for example). A push to master might trigger
+Jenkins to deploy the code as a stable release to your master repository and then deploy it to your production kubernetes
+cluster. Using a simple setup like this it becomes easy to deploy either develop level quality packages or stable
+packages to kubernetes clusters.&lt;/p&gt;
+
+&lt;p&gt;For Jenkins(&lt;a href=&#34;https://jenkins.io/&#34;&gt;https://jenkins.io/&lt;/a&gt;) you can use the this plugin(&lt;a href=&#34;https://github.com/jenkinsci/kubernetes-ci-plugin&#34;&gt;https://github.com/jenkinsci/kubernetes-ci-plugin&lt;/a&gt;) for
+easy helm usage.&lt;/p&gt;
+
+&lt;h4 id=&#34;conclusion:45cb11bfa871ca77409aa8598e952413&#34;&gt;Conclusion&lt;/h4&gt;
+
+&lt;p&gt;Helm makes doing reliable reproducible deployments ridiculously easy to Kubernetes, and I cannot recommend enough
+to make it part of your standard way of working with Kubernetes.&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>Kubernetes nginx-ingress-controller</title>
