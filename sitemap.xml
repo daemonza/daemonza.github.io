@@ -2,9 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>https://daemonza.github.io/</loc>
-    <lastmod>2017-02-20T15:21:26+01:00</lastmod>
-    <priority>0</priority>
+    <loc>https://daemonza.github.io/2017/03/06/using-ansible-to-automate-my-macbook-setup/</loc>
+    <lastmod>2017-03-06T13:06:32+01:00</lastmod>
   </url>
   
   <url>
@@ -20,6 +19,65 @@
   <url>
     <loc>https://daemonza.github.io/2017/01/15/kubernetes-on-aws/</loc>
     <lastmod>2017-01-15T10:09:57+01:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/</loc>
+    <lastmod>2017-03-06T13:06:32+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/amazon/</loc>
+    <lastmod>2017-01-15T10:09:57+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/ansible/</loc>
+    <lastmod>2017-03-06T13:06:32+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/deis/</loc>
+    <lastmod>2017-02-20T15:21:26+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/helm/</loc>
+    <lastmod>2017-02-20T15:21:26+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/ingress/</loc>
+    <lastmod>2017-02-13T09:42:32+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/kubernetes/</loc>
+    <lastmod>2017-02-20T15:21:26+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/nginx/</loc>
+    <lastmod>2017-02-13T09:42:32+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/post/</loc>
+    <lastmod>2017-03-06T13:06:32+01:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://daemonza.github.io/tags/</loc>
+    <priority>0</priority>
   </url>
   
 </urlset>

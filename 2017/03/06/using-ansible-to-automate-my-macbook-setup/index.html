@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+  <title>
+    Using Ansible to automate my Macbook setup // 
+  </title>
+
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+<meta name="description" content="">
+<meta name="keywords" content="">
+<meta name="author" content="">
+<meta name="generator" content="Hugo 0.19" />
+
+  <meta property="og:title" content="Using Ansible to automate my Macbook setup" />
+<meta property="og:description" content="" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:url" content="https://daemonza.github.io/2017/03/06/using-ansible-to-automate-my-macbook-setup/" />
+
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.5.0/base-min.css">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.5.0/pure-min.css">
+  
+  
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.5.0/grids-responsive-min.css">
+  
+  
+
+  <link rel="stylesheet" href="https://daemonza.github.io/css/redlounge.css">
+  <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href='//fonts.googleapis.com/css?family=Raleway:400,200,100,700,300,500,600,800' rel='stylesheet' type='text/css'>
+  <link href='//fonts.googleapis.com/css?family=Libre+Baskerville:400,700,400italic' rel='stylesheet' type='text/css'>
+
+  
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/touch-icon-144-precomposed.png">
+  <link rel="shortcut icon" type="image/x-icon" href="/img/favicon.png">
+
+  
+  <link href="" rel="alternate" type="application/rss+xml" title="" />
+
+    
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/styles/tomorrow-night-bright.min.css">
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
+
+
+  
+
+  
+
+  
+
+  
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', "UA-11463637-6", 'auto');
+  ga('send', 'pageview');
+</script>
+
+</head>
+
+<body>
+	
+
+	<div id="layout" class="pure-g">
+    <div class="sidebar pure-u-1 pure-u-md-1-4">
+  <div class="header">
+    
+
+	
+
+    <h1 class="brand-title">Daemonza</h1>
+    <h2 class="brand-tagline">clouds and stuff and bits and bobs</h2>
+
+    <nav class="nav">
+      <ul class="nav-list">
+        <li class="nav-item"><span class="nav-item-separator">//</span><a href="https://daemonza.github.io">Home</a></li>
+        
+      </ul>
+    </nav>
+
+    
+    <div class="social-buttons">
+      
+        
+        <a href="https://github.com/daemonza" target="_blank"><i class='fa fa-github'></i></a>
+        
+      
+        
+        <a href="https://nl.linkedin.com/in/werner-gillmer-202a79" target="_blank"><i class='fa fa-linkedin'></i></a>
+        
+      
+        
+        <a href="https://twitter.com/daemonza" target="_blank"><i class='fa fa-twitter'></i></a>
+        
+      
+      
+    </div>
+    
+
+  </div>
+</div>
+
+	
+	
+
+    <div class="content pure-u-1 pure-u-md-3-4">
+		<a name="top"></a>
+		
+
+		
+			
+		    <div id="toc" class="pure-u-1 pure-u-md-1-4">
+				<small class="toc-label">Contents</small>
+		   	 	<nav id="TableOfContents">
+<ul>
+<li>
+<ul>
+<li>
+<ul>
+<li>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#configuration-management">Configuration management</a></li>
+<li><a href="#setupmac">Setupmac</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+		    </div>
+		    
+	    
+  		<section class="post">
+            <h1 class="post-title">
+              <a href="/2017/03/06/using-ansible-to-automate-my-macbook-setup/">Using Ansible to automate my Macbook setup</a>
+            </h1>
+            <h3 class="post-subtitle">
+            	
+            </h3>
+            
+            	<span class="post-date">
+                	<span class="post-date-day"><sup>6</sup></span><span class="post-date-separator">/</span><span class="post-date-month">Mar</span> <span class="post-date-year">2017</span>
+            	</span>
+            	
+            
+            	
+            
+
+			
+			
+
+			
+
+			
+
+            
+
+<h4 id="introduction">Introduction</h4>
+
+<p>I am soon going to get a new Macbook, and have been thinking about how to setup it quickly and easily.
+There is <a href="https://github.com/boxen/boxen">Boxen</a>, and while it is awesome at what is does, it does
+too much for my needs. A quick Google shows there is plenty of other tools and solutions out there
+like <code>Boxen</code> that automate a Mac setup. While they all looked mostly good, I want something a little more
+personal, so, let&rsquo;s reinvent the wheel :D</p>
+
+<h4 id="configuration-management">Configuration management</h4>
+
+<p>I noticed that <code>Boxen</code> is build on top of <a href="https://puppet.com/">Puppet</a>, nice, however I prefer
+<a href="https://www.ansible.com/">Ansible</a>, which led me the idea of using Ansible to automate my Macbook setup.</p>
+
+<p>First step, how to install applications. I normally use <a href="https://brew.sh/">Homebrew</a> as much as possible to
+install command line utilities. But normally install GUI apps either through the Mac store or from the
+developer&rsquo;s website. Which will not be so nice to try and maintain through <code>Ansible</code>. Looking through brew
+and <a href="https://caskroom.github.io/">Cask</a> however I realized that I will be able to install almost everything
+I want using just brew and git. awesome!</p>
+
+<p>Browsing through the Ansible module&rsquo;s, I saw that Homebrew is <a href="http://docs.ansible.com/ansible/homebrew_module.html">supported</a> :D
+So no need to use <code>Ansible</code> command module to call brew! And in normal <code>Ansible</code> fashion, it&rsquo;s incredibly easy
+to use.</p>
+
+<p>Example snippet of how to install vim using the homebrew module :</p>
+
+<pre><code>- name: install vim 
+  homebrew:
+    name: vim 
+    state: latest
+</code></pre>
+
+<p>and using cask</p>
+
+<pre><code>- name: install chrome 
+  homebrew_cask:
+    name: google-chrome 
+    state: installed 
+</code></pre>
+
+<p>How simple is that! So now we have all the building blocks to automate the setup of my macbook.</p>
+
+<h4 id="setupmac">Setupmac</h4>
+
+<p>So this is what I build :
+<a href="https://github.com/daemonza/setupmac">https://github.com/daemonza/setupmac</a></p>
+
+<p>Yes, I know, super original name :D</p>
+
+<p>What is does is, it bootstraps getting <code>Ansible</code> by installing <a href="https://pypi.python.org/pypi/pip">pip</a> with <code>easy_install</code> which in
+turns then install <code>Ansible</code>. From there, the <code>Ansible</code> playbook runs a <code>setup</code> role against localhost that installs <code>homebrew</code> and update it.
+It then installs the applications listed <a href="https://raw.githubusercontent.com/daemonza/setupmac/master/roles/setup/vars/main.yml">here</a>.
+Unfortunately two of the applications is not available through Homebrew, so I download those to my <code>$HOME/Downloads</code> directory. Luckily
+this is simple to do with <code>Ansible</code> :</p>
+
+<p>Example snippet of how to download a app(<a href="http://zwift.com/">Zwift</a>) to $HOME/Downloads :</p>
+
+<pre><code>   general:
+     local_home: &quot;{{ lookup('env','HOME') }}&quot;
+
+   zwift:
+     name: Zwift
+     url: http://cdn.zwift.com/app/ZwiftOSX.dmg
+     dest: &quot;{{general.local_home}}/Downloads/ZwiftOSX.dmg&quot;
+</code></pre>
+
+<p>The <code>Ansible</code> role then starts the configuration, which involves getting <a href="http://ohmyz.sh/">oh-my-zsh</a> with the <a href="https://draculatheme.com/">theme</a>
+that I use, and <a href="http://spacemacs.org/">spacemacs</a> from git, clones my <a href="https://github.com/daemonza/dotfiles">dotfiles</a> from my github repository,
+and copies the respective files to the correct locations.</p>
+
+<p>To make it as easy as possible to install, you can execute the start script locally on your mac with curl as follows :</p>
+
+<pre><code>curl -s https://raw.githubusercontent.com/daemonza/setupmac/master/start.sh | /bin/bash
+</code></pre>
+
+<p>The <a href="https://raw.githubusercontent.com/daemonza/setupmac/master/start.sh">script</a> that bootstraps <code>ansible</code></p>
+
+<h4 id="conclusion">Conclusion</h4>
+
+<p>Ansible is awesome! It provides just the right level of power vs complexity to quickly enable you
+to build useful automation. While <code>setupmac</code> is really setup for how I like my Macbook, I hope it will be useful
+to someone who wants to do something similar.</p>
+
+	
+			
+
+			
+				<div class="tags-list">
+					<span class="dark-red">Tags</span><span class="decorative-marker">//</span>
+					
+	                <a class="post-tag post-tag-ansible" href="https://daemonza.github.io/tags/ansible">ansible</a>,
+	                
+				</div>
+			
+
+			
+				<div class="paging">
+					<span class="paging-label">More Reading</span>
+					
+
+					
+					<div class="paging-older">
+						<span class="dark-red">Older</span><span class="decorative-marker">//</span>
+			            <a class="paging-link" href="/2017/02/20/using-helm-to-deploy-to-kubernetes/">Using Helm to deploy to Kubernetes</a>
+		            </div>
+		            
+	            </div>
+            
+          </section>
+          
+          	<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'daemonza-github-io';
+    var disqus_identifier = 'https:\/\/daemonza.github.io\/2017\/03\/06\/using-ansible-to-automate-my-macbook-setup\/';
+    var disqus_title = 'Using Ansible to automate my Macbook setup';
+    var disqus_url = 'https:\/\/daemonza.github.io\/2017\/03\/06\/using-ansible-to-automate-my-macbook-setup\/';
+
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+          
+        
+      <div class="footer">
+	<hr class="thin" />
+	<div class="pure-menu pure-menu-horizontal pure-menu-open">
+		<ul class="footer-menu">
+		
+		</ul>
+	</div>
+
+	<p>&copy; 2017. All rights reserved.</p>
+</div>
+    </div>
+  </div>
+	
+
+	
+
+  
+</body>
+</html>

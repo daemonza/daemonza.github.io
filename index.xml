@@ -2,15 +2,107 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title></title>
-    <link>https://daemonza.github.io/</link>
+    <link>https://daemonza.github.io/index.xml</link>
     <description>Recent content on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-EN</language>
     <managingEditor>werner.gillmer@gmail.com (Werner Gillmer)</managingEditor>
     <webMaster>werner.gillmer@gmail.com (Werner Gillmer)</webMaster>
     <copyright>(c) 2017 Werner Gillmer</copyright>
-    <lastBuildDate>Mon, 20 Feb 2017 15:21:26 +0100</lastBuildDate>
+    <lastBuildDate>Mon, 06 Mar 2017 13:06:32 +0100</lastBuildDate>
     <atom:link href="https://daemonza.github.io/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Using Ansible to automate my Macbook setup</title>
+      <link>https://daemonza.github.io/2017/03/06/using-ansible-to-automate-my-macbook-setup/</link>
+      <pubDate>Mon, 06 Mar 2017 13:06:32 +0100</pubDate>
+      <author>werner.gillmer@gmail.com (Werner Gillmer)</author>
+      <guid>https://daemonza.github.io/2017/03/06/using-ansible-to-automate-my-macbook-setup/</guid>
+      <description>
+
+&lt;h4 id=&#34;introduction&#34;&gt;Introduction&lt;/h4&gt;
+
+&lt;p&gt;I am soon going to get a new Macbook, and have been thinking about how to setup it quickly and easily.
+There is &lt;a href=&#34;https://github.com/boxen/boxen&#34;&gt;Boxen&lt;/a&gt;, and while it is awesome at what is does, it does
+too much for my needs. A quick Google shows there is plenty of other tools and solutions out there
+like &lt;code&gt;Boxen&lt;/code&gt; that automate a Mac setup. While they all looked mostly good, I want something a little more
+personal, so, let&amp;rsquo;s reinvent the wheel :D&lt;/p&gt;
+
+&lt;h4 id=&#34;configuration-management&#34;&gt;Configuration management&lt;/h4&gt;
+
+&lt;p&gt;I noticed that &lt;code&gt;Boxen&lt;/code&gt; is build on top of &lt;a href=&#34;https://puppet.com/&#34;&gt;Puppet&lt;/a&gt;, nice, however I prefer
+&lt;a href=&#34;https://www.ansible.com/&#34;&gt;Ansible&lt;/a&gt;, which led me the idea of using Ansible to automate my Macbook setup.&lt;/p&gt;
+
+&lt;p&gt;First step, how to install applications. I normally use &lt;a href=&#34;https://brew.sh/&#34;&gt;Homebrew&lt;/a&gt; as much as possible to
+install command line utilities. But normally install GUI apps either through the Mac store or from the
+developer&amp;rsquo;s website. Which will not be so nice to try and maintain through &lt;code&gt;Ansible&lt;/code&gt;. Looking through brew
+and &lt;a href=&#34;https://caskroom.github.io/&#34;&gt;Cask&lt;/a&gt; however I realized that I will be able to install almost everything
+I want using just brew and git. awesome!&lt;/p&gt;
+
+&lt;p&gt;Browsing through the Ansible module&amp;rsquo;s, I saw that Homebrew is &lt;a href=&#34;http://docs.ansible.com/ansible/homebrew_module.html&#34;&gt;supported&lt;/a&gt; :D
+So no need to use &lt;code&gt;Ansible&lt;/code&gt; command module to call brew! And in normal &lt;code&gt;Ansible&lt;/code&gt; fashion, it&amp;rsquo;s incredibly easy
+to use.&lt;/p&gt;
+
+&lt;p&gt;Example snippet of how to install vim using the homebrew module :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;- name: install vim 
+  homebrew:
+    name: vim 
+    state: latest
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;and using cask&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;- name: install chrome 
+  homebrew_cask:
+    name: google-chrome 
+    state: installed 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;How simple is that! So now we have all the building blocks to automate the setup of my macbook.&lt;/p&gt;
+
+&lt;h4 id=&#34;setupmac&#34;&gt;Setupmac&lt;/h4&gt;
+
+&lt;p&gt;So this is what I build :
+&lt;a href=&#34;https://github.com/daemonza/setupmac&#34;&gt;https://github.com/daemonza/setupmac&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Yes, I know, super original name :D&lt;/p&gt;
+
+&lt;p&gt;What is does is, it bootstraps getting &lt;code&gt;Ansible&lt;/code&gt; by installing &lt;a href=&#34;https://pypi.python.org/pypi/pip&#34;&gt;pip&lt;/a&gt; with &lt;code&gt;easy_install&lt;/code&gt; which in
+turns then install &lt;code&gt;Ansible&lt;/code&gt;. From there, the &lt;code&gt;Ansible&lt;/code&gt; playbook runs a &lt;code&gt;setup&lt;/code&gt; role against localhost that installs &lt;code&gt;homebrew&lt;/code&gt; and update it.
+It then installs the applications listed &lt;a href=&#34;https://raw.githubusercontent.com/daemonza/setupmac/master/roles/setup/vars/main.yml&#34;&gt;here&lt;/a&gt;.
+Unfortunately two of the applications is not available through Homebrew, so I download those to my &lt;code&gt;$HOME/Downloads&lt;/code&gt; directory. Luckily
+this is simple to do with &lt;code&gt;Ansible&lt;/code&gt; :&lt;/p&gt;
+
+&lt;p&gt;Example snippet of how to download a app(&lt;a href=&#34;http://zwift.com/&#34;&gt;Zwift&lt;/a&gt;) to $HOME/Downloads :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;   general:
+     local_home: &amp;quot;{{ lookup(&#39;env&#39;,&#39;HOME&#39;) }}&amp;quot;
+
+   zwift:
+     name: Zwift
+     url: http://cdn.zwift.com/app/ZwiftOSX.dmg
+     dest: &amp;quot;{{general.local_home}}/Downloads/ZwiftOSX.dmg&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The &lt;code&gt;Ansible&lt;/code&gt; role then starts the configuration, which involves getting &lt;a href=&#34;http://ohmyz.sh/&#34;&gt;oh-my-zsh&lt;/a&gt; with the &lt;a href=&#34;https://draculatheme.com/&#34;&gt;theme&lt;/a&gt;
+that I use, and &lt;a href=&#34;http://spacemacs.org/&#34;&gt;spacemacs&lt;/a&gt; from git, clones my &lt;a href=&#34;https://github.com/daemonza/dotfiles&#34;&gt;dotfiles&lt;/a&gt; from my github repository,
+and copies the respective files to the correct locations.&lt;/p&gt;
+
+&lt;p&gt;To make it as easy as possible to install, you can execute the start script locally on your mac with curl as follows :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;curl -s https://raw.githubusercontent.com/daemonza/setupmac/master/start.sh | /bin/bash
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The &lt;a href=&#34;https://raw.githubusercontent.com/daemonza/setupmac/master/start.sh&#34;&gt;script&lt;/a&gt; that bootstraps &lt;code&gt;ansible&lt;/code&gt;&lt;/p&gt;
+
+&lt;h4 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h4&gt;
+
+&lt;p&gt;Ansible is awesome! It provides just the right level of power vs complexity to quickly enable you
+to build useful automation. While &lt;code&gt;setupmac&lt;/code&gt; is really setup for how I like my Macbook, I hope it will be useful
+to someone who wants to do something similar.&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>Using Helm to deploy to Kubernetes</title>
@@ -20,12 +112,12 @@
       <guid>https://daemonza.github.io/2017/02/20/using-helm-to-deploy-to-kubernetes/</guid>
       <description>
 
-&lt;h4 id=&#34;introduction:45cb11bfa871ca77409aa8598e952413&#34;&gt;Introduction&lt;/h4&gt;
+&lt;h4 id=&#34;introduction&#34;&gt;Introduction&lt;/h4&gt;
 
 &lt;p&gt;In this post I will be showing how to use Helm (&lt;a href=&#34;https://helm.sh&#34;&gt;https://helm.sh&lt;/a&gt;) to build and deploy your own charts to a Kubernetes
 cluster.&lt;/p&gt;
 
-&lt;h4 id=&#34;preface:45cb11bfa871ca77409aa8598e952413&#34;&gt;Preface&lt;/h4&gt;
+&lt;h4 id=&#34;preface&#34;&gt;Preface&lt;/h4&gt;
 
 &lt;p&gt;What is Helm? Well, think of it as the apt-get / yum of Kubernetes, it&amp;rsquo;s a package manager for Kubernetes
 developed by the guys from Deis (&lt;a href=&#34;https://deis.com/&#34;&gt;https://deis.com/&lt;/a&gt;). If you deploy applications to Kubernetes, Helm makes
@@ -42,7 +134,7 @@ as running :&lt;/p&gt;
 &lt;pre&gt;&lt;code&gt;helm init
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;building-a-helm-chart:45cb11bfa871ca77409aa8598e952413&#34;&gt;Building a Helm chart&lt;/h4&gt;
+&lt;h4 id=&#34;building-a-helm-chart&#34;&gt;Building a Helm chart&lt;/h4&gt;
 
 &lt;p&gt;Let&amp;rsquo;s see Helm in action, using a small little Go test api I created specifically for testing use cases like this, let&amp;rsquo;s
 build a helm chart of it.&lt;/p&gt;
@@ -237,7 +329,7 @@ should see the new version next to &lt;code&gt;ordered-quoll&lt;/code&gt;. And o
 &lt;p&gt;While this works well, it would be nicer to put our &lt;code&gt;chart&lt;/code&gt; in a Helm repository, as it&amp;rsquo;s then easy to share
 the chart or access it from other clusters, etc.&lt;/p&gt;
 
-&lt;h4 id=&#34;setting-up-helm-repository:45cb11bfa871ca77409aa8598e952413&#34;&gt;Setting up Helm repository&lt;/h4&gt;
+&lt;h4 id=&#34;setting-up-helm-repository&#34;&gt;Setting up Helm repository&lt;/h4&gt;
 
 &lt;p&gt;A Helm repository is nothing more than just a web server that&amp;rsquo;s able to serve a index.yaml file
 and chart files, which is really just tar.gz file containing the generated kubernetes resource manifest files from our helm chart
@@ -263,7 +355,7 @@ handles the repository indexing for you using helm in the backend.&lt;/p&gt;
 &lt;p&gt;You can find out more about &lt;code&gt;Helmet&lt;/code&gt; at
 &lt;a href=&#34;https://github.com/daemonza/helmet&#34;&gt;https://github.com/daemonza/helmet&lt;/a&gt;&lt;/p&gt;
 
-&lt;h4 id=&#34;using-a-helm-repository:45cb11bfa871ca77409aa8598e952413&#34;&gt;Using a Helm repository&lt;/h4&gt;
+&lt;h4 id=&#34;using-a-helm-repository&#34;&gt;Using a Helm repository&lt;/h4&gt;
 
 &lt;p&gt;Using &lt;code&gt;Helmet&lt;/code&gt; as our helm repository, let&amp;rsquo;s deploy it to our Kubernetes cluster and then add a chart.
 And off course we can deploy &lt;code&gt;Helmet&lt;/code&gt; with Helm :D&lt;/p&gt;
@@ -351,7 +443,7 @@ Now, to continue  let&amp;rsquo;s install the testapi from our &lt;code&gt;helme
 &lt;p&gt;And that&amp;rsquo;s how simple it is to use helm repositories. We can now use this &lt;code&gt;helmet&lt;/code&gt; helm repository from anywhere
 upload charts to and deploy from.&lt;/p&gt;
 
-&lt;h4 id=&#34;ci-cd:45cb11bfa871ca77409aa8598e952413&#34;&gt;CI / CD&lt;/h4&gt;
+&lt;h4 id=&#34;ci-cd&#34;&gt;CI / CD&lt;/h4&gt;
 
 &lt;p&gt;Helm makes continuous integration and deployment a lot easier with Kubernetes. For example one strategy of doing it could
 be, matching up your git branches to helm repositories.
@@ -374,7 +466,7 @@ packages to kubernetes clusters.&lt;/p&gt;
 &lt;p&gt;For Jenkins(&lt;a href=&#34;https://jenkins.io/&#34;&gt;https://jenkins.io/&lt;/a&gt;) you can use the this plugin(&lt;a href=&#34;https://github.com/jenkinsci/kubernetes-ci-plugin&#34;&gt;https://github.com/jenkinsci/kubernetes-ci-plugin&lt;/a&gt;) for
 easy helm usage.&lt;/p&gt;
 
-&lt;h4 id=&#34;conclusion:45cb11bfa871ca77409aa8598e952413&#34;&gt;Conclusion&lt;/h4&gt;
+&lt;h4 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h4&gt;
 
 &lt;p&gt;Helm makes doing reliable reproducible deployments ridiculously easy to Kubernetes, and I cannot recommend enough
 to make it part of your standard way of working with Kubernetes.&lt;/p&gt;
@@ -389,7 +481,7 @@ to make it part of your standard way of working with Kubernetes.&lt;/p&gt;
       <guid>https://daemonza.github.io/2017/02/13/kubernetes-nginx-ingress-controller/</guid>
       <description>
 
-&lt;h4 id=&#34;introduction:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Introduction&lt;/h4&gt;
+&lt;h4 id=&#34;introduction&#34;&gt;Introduction&lt;/h4&gt;
 
 &lt;p&gt;In this post I will explain, how I expose applications running on Kubernetes clusters to the internet with the
 help of Ingress controllers.&lt;/p&gt;
@@ -425,7 +517,7 @@ Create a CNAME dns record to a external domain.&lt;/p&gt;&lt;/li&gt;
 &lt;p&gt;For more information about &lt;code&gt;Ingresses&lt;/code&gt; look at
 &lt;a href=&#34;https://kubernetes.io/docs/user-guide/ingress/&#34;&gt;https://kubernetes.io/docs/user-guide/ingress/&lt;/a&gt;&lt;/p&gt;
 
-&lt;h4 id=&#34;scenario:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Scenario&lt;/h4&gt;
+&lt;h4 id=&#34;scenario&#34;&gt;Scenario&lt;/h4&gt;
 
 &lt;p&gt;Imagine this scenario, you have a cluster running, on Amazon, you have multiple applications deployed to it, some are API&amp;rsquo;s some
 are Java applications running inside something like Tomcat, and to add to the mix, you have a couple of static html pages sitting in a
@@ -443,7 +535,7 @@ picks up the new deployed service and proxy traffic to it from outside.&lt;/p&gt
 &lt;p&gt;Following this setup, you only have one ELB then on Amazon, and a central place at the &lt;code&gt;ingress controller&lt;/code&gt; to manage the traffic coming
 into your cluster to your applications.&lt;/p&gt;
 
-&lt;h4 id=&#34;ingress-controllers:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Ingress controllers&lt;/h4&gt;
+&lt;h4 id=&#34;ingress-controllers&#34;&gt;Ingress controllers&lt;/h4&gt;
 
 &lt;p&gt;Two of the more popular ones that I normally use, are Traefik and Nginx-ingress-controller. I like both, and for simple projects I prefer using Traefik
 as it&amp;rsquo; easy to setup and use. However as the projects needs grow or for more complex projects, I reach for the nginx-ingress-controller.&lt;/p&gt;
@@ -469,7 +561,7 @@ and mold it to do whatever you need it to do.&lt;/li&gt;
 
 &lt;p&gt;In general I prefer the nginx-ingress-controller, so for the rest of the article I will focus on it.&lt;/p&gt;
 
-&lt;h4 id=&#34;setup:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Setup&lt;/h4&gt;
+&lt;h4 id=&#34;setup&#34;&gt;Setup&lt;/h4&gt;
 
 &lt;p&gt;Let&amp;rsquo;s setup a little demo &amp;lsquo;hello world&amp;rsquo; api on our  cluster and expose the api on the internet using
 nginx-ingress-controller. Let&amp;rsquo;s deploy the &lt;code&gt;nginx-ingress-controller&lt;/code&gt; first.&lt;/p&gt;
@@ -644,7 +736,7 @@ Server: nginx/1.11.3
 &lt;code&gt;nginx-ingress-controller&lt;/code&gt; and the &lt;code&gt;nginx-ingress-controller&lt;/code&gt; passed it along to the
 &lt;code&gt;default-backend-service&lt;/code&gt; that we deployed.&lt;/p&gt;
 
-&lt;h4 id=&#34;deploying-our-api-application:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Deploying our API application&lt;/h4&gt;
+&lt;h4 id=&#34;deploying-our-api-application&#34;&gt;Deploying our API application&lt;/h4&gt;
 
 &lt;p&gt;I like Go, so I created a little API that we can deploy and test the ingress controller with.
 This is the api we are going to deploy :
@@ -820,7 +912,7 @@ testapi ingress specification, we added this annotation :&lt;/p&gt;
 If we do the request again on https we should get status 200 back. Assuming that worked, let&amp;rsquo;s move on and add
 some virtual hosts for our testapi.&lt;/p&gt;
 
-&lt;h4 id=&#34;virtual-hosts:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Virtual hosts&lt;/h4&gt;
+&lt;h4 id=&#34;virtual-hosts&#34;&gt;Virtual hosts&lt;/h4&gt;
 
 &lt;p&gt;Change the testapi.md ingress specification to look as follow, change the host domain name to a domain that you own
 or setup them up in your local /etc/hosts file for testing.&lt;/p&gt;
@@ -962,7 +1054,7 @@ Annotations:
 &lt;p&gt;Running the curl command now against &lt;a href=&#34;https://api.fakedomain.io&#34;&gt;https://api.fakedomain.io&lt;/a&gt; should work without any warnings about
 insecure certificates.&lt;/p&gt;
 
-&lt;h4 id=&#34;path-rewrites:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Path rewrites&lt;/h4&gt;
+&lt;h4 id=&#34;path-rewrites&#34;&gt;Path rewrites&lt;/h4&gt;
 
 &lt;p&gt;Sometimes, there is a need to rewrite the path of a request to match up with the backend service. One such scenario might be,
 a API got developed and deployed, got changed over time, but there is still a need to be backwards
@@ -991,7 +1083,7 @@ spec:
           servicePort: 8080
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;sticky-sessions:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Sticky sessions&lt;/h4&gt;
+&lt;h4 id=&#34;sticky-sessions&#34;&gt;Sticky sessions&lt;/h4&gt;
 
 &lt;p&gt;Won&amp;rsquo;t it be nice if all applications got developed from the start with the 12-factor (&lt;a href=&#34;https://12factor.net/&#34;&gt;https://12factor.net/&lt;/a&gt;) methodology
 in mind? Unfortunately that does not always happen, and there is times when you have to be able
@@ -1041,7 +1133,7 @@ server {
         }
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;proxy-protocol:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Proxy protocol&lt;/h4&gt;
+&lt;h4 id=&#34;proxy-protocol&#34;&gt;Proxy protocol&lt;/h4&gt;
 
 &lt;p&gt;Lots of times you need to pass a user&amp;rsquo;s IP address / hostname through to your application. A example would
 be, to have the hostname of the user in your application logs.&lt;/p&gt;
@@ -1066,7 +1158,7 @@ by following the documentation here : &lt;a href=&#34;http://docs.aws.amazon.com
 &lt;p&gt;And excellent explanation of what proxy protocol is and how it works can be found at
 &lt;a href=&#34;http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt&#34;&gt;http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt&lt;/a&gt;&lt;/p&gt;
 
-&lt;h4 id=&#34;custom-nginx-configuration:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Custom Nginx configuration&lt;/h4&gt;
+&lt;h4 id=&#34;custom-nginx-configuration&#34;&gt;Custom Nginx configuration&lt;/h4&gt;
 
 &lt;p&gt;Sometimes there is a need to configure something in Nginx, that&amp;rsquo;s not possible through the nginx-ingress-controller
 configMap, annotations or ingress rules. In such cases, it&amp;rsquo;s possible to edit &lt;code&gt;nginx.tmpl&lt;/code&gt; Go template.&lt;/p&gt;
@@ -1094,7 +1186,7 @@ volumes:
          path: nginx.tmpl
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;conclusion:fddc9cbd6401bed2470db90b3d9bacf5&#34;&gt;Conclusion&lt;/h4&gt;
+&lt;h4 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h4&gt;
 
 &lt;p&gt;The Kubernetes ingress specifications combined with the nginx-ingress-controller gives a incredible flexible and
 powerful routing platform for your Kubernetes clusters. For more information about Kubernetes Ingress and the
@@ -1123,7 +1215,7 @@ better for me. Also there is something to be said for using a tool developed and
 &lt;p&gt;There is also kubeadm (&lt;a href=&#34;https://kubernetes.io/docs/getting-started-guides/kubeadm/&#34;&gt;https://kubernetes.io/docs/getting-started-guides/kubeadm/&lt;/a&gt;), however it&amp;rsquo;s currently in alpha. Have not
 used it myself before, but it&amp;rsquo;s definitely something I am keeping a eye on.&lt;/p&gt;
 
-&lt;h4 id=&#34;installing-kops:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Installing kops&lt;/h4&gt;
+&lt;h4 id=&#34;installing-kops&#34;&gt;Installing kops&lt;/h4&gt;
 
 &lt;p&gt;I use macOS so from here all instructions will be based on the assumption it&amp;rsquo;s being executed on macOS. It should
 however work on Linux or at least be easily adapted to work on Linux.&lt;/p&gt;
@@ -1149,7 +1241,7 @@ make
 &lt;pre&gt;&lt;code&gt;kops version
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;setup:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Setup&lt;/h4&gt;
+&lt;h4 id=&#34;setup&#34;&gt;Setup&lt;/h4&gt;
 
 &lt;p&gt;It&amp;rsquo;s strictly not needed to install awscli, as you can do everything needed for setting up a kops created aws kubernetes
 cluster through the Amazon web console. However, I find it useful and prefer it to the console.&lt;/p&gt;
@@ -1193,7 +1285,7 @@ EXPORT KUBECONFIG=&amp;quot;~/stacks/dev.daemonza.io/kubeconfig&amp;quot;
 ssh-keygen -t rsa # save the keys in the credentials directory
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;create-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Create cluster&lt;/h4&gt;
+&lt;h4 id=&#34;create-cluster&#34;&gt;Create cluster&lt;/h4&gt;
 
 &lt;p&gt;First thing is to decided on is the DNS setup for your cluster. It&amp;rsquo;s standard practice to use sub domains
 to identify a cluster. E.g. dev.daemonza., qa.daemonza.io, prod.daemonza.io for the develop, QA and
@@ -1359,7 +1451,7 @@ the kubectl command line tool probably 99% of the time, it&amp;rsquo;s nice to e
 &lt;p&gt;You can now run kubectl proxy and access your cluster at
 &lt;a href=&#34;http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all&#34;&gt;http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all&lt;/a&gt;&lt;/p&gt;
 
-&lt;h4 id=&#34;list-clusters:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;List clusters&lt;/h4&gt;
+&lt;h4 id=&#34;list-clusters&#34;&gt;List clusters&lt;/h4&gt;
 
 &lt;p&gt;Kops makes it easy to manage multiple stacks. To get a list of all your current stacks
 run the following :&lt;/p&gt;
@@ -1396,7 +1488,7 @@ master-eu-west-1a	Master	t2.medium	1	1	eu-west-1a
 nodes			Node	m3.xlarge	2	2	eu-west-1a,eu-west-1b
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;h4 id=&#34;modify-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Modify cluster&lt;/h4&gt;
+&lt;h4 id=&#34;modify-cluster&#34;&gt;Modify cluster&lt;/h4&gt;
 
 &lt;p&gt;Kops makes it easy, and relative safe to modify a Kubernetes cluster with it&amp;rsquo;s rolling updates. Continuing from
 our example above in the  cluster listing. Let&amp;rsquo;s modify our cluster to have three m3.xlarge worker nodes instead
@@ -1467,7 +1559,7 @@ kops rolling-update cluster --yes
 
 &lt;p&gt;Sit back and wait for your cluster changes to take affect.&lt;/p&gt;
 
-&lt;h4 id=&#34;remove-cluster:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Remove cluster&lt;/h4&gt;
+&lt;h4 id=&#34;remove-cluster&#34;&gt;Remove cluster&lt;/h4&gt;
 
 &lt;p&gt;Now to remove the cluster that you just created run&lt;/p&gt;
 
@@ -1492,7 +1584,7 @@ Must specify --yes to delete
 &lt;p&gt;Then if you are a 100% sure you want to remove the cluster, NOTE, there is no coming back
 from this, add &amp;ndash;yes to the the command.&lt;/p&gt;
 
-&lt;h4 id=&#34;conclusion:3ac6298d606a83e1b55f117f57e6507d&#34;&gt;Conclusion&lt;/h4&gt;
+&lt;h4 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h4&gt;
 
 &lt;p&gt;That&amp;rsquo;s it folks! Kops is a powerful tool to work with Kubernetes and we have barely scratch the
 surface in this article. For more information, of what else you can do with Kops head over to

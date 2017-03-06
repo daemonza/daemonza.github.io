@@ -14,7 +14,7 @@
 <meta name="description" content="">
 <meta name="keywords" content="">
 <meta name="author" content="">
-<meta name="generator" content="Hugo 0.15" />
+<meta name="generator" content="Hugo 0.19" />
 
   <meta property="og:title" content="Kubernetes nginx-ingress-controller" />
 <meta property="og:description" content="" />
@@ -132,17 +132,17 @@
 <ul>
 <li>
 <ul>
-<li><a href="#introduction:fddc9cbd6401bed2470db90b3d9bacf5">Introduction</a></li>
-<li><a href="#scenario:fddc9cbd6401bed2470db90b3d9bacf5">Scenario</a></li>
-<li><a href="#ingress-controllers:fddc9cbd6401bed2470db90b3d9bacf5">Ingress controllers</a></li>
-<li><a href="#setup:fddc9cbd6401bed2470db90b3d9bacf5">Setup</a></li>
-<li><a href="#deploying-our-api-application:fddc9cbd6401bed2470db90b3d9bacf5">Deploying our API application</a></li>
-<li><a href="#virtual-hosts:fddc9cbd6401bed2470db90b3d9bacf5">Virtual hosts</a></li>
-<li><a href="#path-rewrites:fddc9cbd6401bed2470db90b3d9bacf5">Path rewrites</a></li>
-<li><a href="#sticky-sessions:fddc9cbd6401bed2470db90b3d9bacf5">Sticky sessions</a></li>
-<li><a href="#proxy-protocol:fddc9cbd6401bed2470db90b3d9bacf5">Proxy protocol</a></li>
-<li><a href="#custom-nginx-configuration:fddc9cbd6401bed2470db90b3d9bacf5">Custom Nginx configuration</a></li>
-<li><a href="#conclusion:fddc9cbd6401bed2470db90b3d9bacf5">Conclusion</a></li>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#scenario">Scenario</a></li>
+<li><a href="#ingress-controllers">Ingress controllers</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#deploying-our-api-application">Deploying our API application</a></li>
+<li><a href="#virtual-hosts">Virtual hosts</a></li>
+<li><a href="#path-rewrites">Path rewrites</a></li>
+<li><a href="#sticky-sessions">Sticky sessions</a></li>
+<li><a href="#proxy-protocol">Proxy protocol</a></li>
+<li><a href="#custom-nginx-configuration">Custom Nginx configuration</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
 </ul></li>
 </ul></li>
 </ul></li>
@@ -176,7 +176,7 @@
 
             
 
-<h4 id="introduction:fddc9cbd6401bed2470db90b3d9bacf5">Introduction</h4>
+<h4 id="introduction">Introduction</h4>
 
 <p>In this post I will explain, how I expose applications running on Kubernetes clusters to the internet with the
 help of Ingress controllers.</p>
@@ -212,7 +212,7 @@ Create a CNAME dns record to a external domain.</p></li>
 <p>For more information about <code>Ingresses</code> look at
 <a href="https://kubernetes.io/docs/user-guide/ingress/">https://kubernetes.io/docs/user-guide/ingress/</a></p>
 
-<h4 id="scenario:fddc9cbd6401bed2470db90b3d9bacf5">Scenario</h4>
+<h4 id="scenario">Scenario</h4>
 
 <p>Imagine this scenario, you have a cluster running, on Amazon, you have multiple applications deployed to it, some are API&rsquo;s some
 are Java applications running inside something like Tomcat, and to add to the mix, you have a couple of static html pages sitting in a
@@ -230,7 +230,7 @@ picks up the new deployed service and proxy traffic to it from outside.</p>
 <p>Following this setup, you only have one ELB then on Amazon, and a central place at the <code>ingress controller</code> to manage the traffic coming
 into your cluster to your applications.</p>
 
-<h4 id="ingress-controllers:fddc9cbd6401bed2470db90b3d9bacf5">Ingress controllers</h4>
+<h4 id="ingress-controllers">Ingress controllers</h4>
 
 <p>Two of the more popular ones that I normally use, are Traefik and Nginx-ingress-controller. I like both, and for simple projects I prefer using Traefik
 as it&rsquo; easy to setup and use. However as the projects needs grow or for more complex projects, I reach for the nginx-ingress-controller.</p>
@@ -256,7 +256,7 @@ and mold it to do whatever you need it to do.</li>
 
 <p>In general I prefer the nginx-ingress-controller, so for the rest of the article I will focus on it.</p>
 
-<h4 id="setup:fddc9cbd6401bed2470db90b3d9bacf5">Setup</h4>
+<h4 id="setup">Setup</h4>
 
 <p>Let&rsquo;s setup a little demo &lsquo;hello world&rsquo; api on our  cluster and expose the api on the internet using
 nginx-ingress-controller. Let&rsquo;s deploy the <code>nginx-ingress-controller</code> first.</p>
@@ -431,7 +431,7 @@ Server: nginx/1.11.3
 <code>nginx-ingress-controller</code> and the <code>nginx-ingress-controller</code> passed it along to the
 <code>default-backend-service</code> that we deployed.</p>
 
-<h4 id="deploying-our-api-application:fddc9cbd6401bed2470db90b3d9bacf5">Deploying our API application</h4>
+<h4 id="deploying-our-api-application">Deploying our API application</h4>
 
 <p>I like Go, so I created a little API that we can deploy and test the ingress controller with.
 This is the api we are going to deploy :
@@ -607,7 +607,7 @@ testapi ingress specification, we added this annotation :</p>
 If we do the request again on https we should get status 200 back. Assuming that worked, let&rsquo;s move on and add
 some virtual hosts for our testapi.</p>
 
-<h4 id="virtual-hosts:fddc9cbd6401bed2470db90b3d9bacf5">Virtual hosts</h4>
+<h4 id="virtual-hosts">Virtual hosts</h4>
 
 <p>Change the testapi.md ingress specification to look as follow, change the host domain name to a domain that you own
 or setup them up in your local /etc/hosts file for testing.</p>
@@ -749,7 +749,7 @@ Annotations:
 <p>Running the curl command now against <a href="https://api.fakedomain.io">https://api.fakedomain.io</a> should work without any warnings about
 insecure certificates.</p>
 
-<h4 id="path-rewrites:fddc9cbd6401bed2470db90b3d9bacf5">Path rewrites</h4>
+<h4 id="path-rewrites">Path rewrites</h4>
 
 <p>Sometimes, there is a need to rewrite the path of a request to match up with the backend service. One such scenario might be,
 a API got developed and deployed, got changed over time, but there is still a need to be backwards
@@ -778,7 +778,7 @@ spec:
           servicePort: 8080
 </code></pre>
 
-<h4 id="sticky-sessions:fddc9cbd6401bed2470db90b3d9bacf5">Sticky sessions</h4>
+<h4 id="sticky-sessions">Sticky sessions</h4>
 
 <p>Won&rsquo;t it be nice if all applications got developed from the start with the 12-factor (<a href="https://12factor.net/">https://12factor.net/</a>) methodology
 in mind? Unfortunately that does not always happen, and there is times when you have to be able
@@ -828,7 +828,7 @@ server {
         }
 </code></pre>
 
-<h4 id="proxy-protocol:fddc9cbd6401bed2470db90b3d9bacf5">Proxy protocol</h4>
+<h4 id="proxy-protocol">Proxy protocol</h4>
 
 <p>Lots of times you need to pass a user&rsquo;s IP address / hostname through to your application. A example would
 be, to have the hostname of the user in your application logs.</p>
@@ -853,7 +853,7 @@ by following the documentation here : <a href="http://docs.aws.amazon.com/elasti
 <p>And excellent explanation of what proxy protocol is and how it works can be found at
 <a href="http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt">http://www.haproxy.org/download/1.8/doc/proxy-protocol.txt</a></p>
 
-<h4 id="custom-nginx-configuration:fddc9cbd6401bed2470db90b3d9bacf5">Custom Nginx configuration</h4>
+<h4 id="custom-nginx-configuration">Custom Nginx configuration</h4>
 
 <p>Sometimes there is a need to configure something in Nginx, that&rsquo;s not possible through the nginx-ingress-controller
 configMap, annotations or ingress rules. In such cases, it&rsquo;s possible to edit <code>nginx.tmpl</code> Go template.</p>
@@ -881,7 +881,7 @@ volumes:
          path: nginx.tmpl
 </code></pre>
 
-<h4 id="conclusion:fddc9cbd6401bed2470db90b3d9bacf5">Conclusion</h4>
+<h4 id="conclusion">Conclusion</h4>
 
 <p>The Kubernetes ingress specifications combined with the nginx-ingress-controller gives a incredible flexible and
 powerful routing platform for your Kubernetes clusters. For more information about Kubernetes Ingress and the
@@ -893,6 +893,17 @@ Nginx-ingress-controller visit :</p>
 	
 			
 
+			
+				<div class="tags-list">
+					<span class="dark-red">Tags</span><span class="decorative-marker">//</span>
+					
+	                <a class="post-tag post-tag-kubernetes" href="https://daemonza.github.io/tags/kubernetes">kubernetes</a>,
+	                
+	                <a class="post-tag post-tag-nginx" href="https://daemonza.github.io/tags/nginx">nginx</a>,
+	                
+	                <a class="post-tag post-tag-ingress" href="https://daemonza.github.io/tags/ingress">ingress</a>,
+	                
+				</div>
 			
 
 			

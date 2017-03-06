@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Ansible on </title>
+    <link>https://daemonza.github.io/tags/ansible/index.xml</link>
+    <description>Recent content in Ansible on </description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-EN</language>
+    <managingEditor>werner.gillmer@gmail.com (Werner Gillmer)</managingEditor>
+    <webMaster>werner.gillmer@gmail.com (Werner Gillmer)</webMaster>
+    <copyright>(c) 2017 Werner Gillmer</copyright>
+    <atom:link href="https://daemonza.github.io/tags/ansible/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Using Ansible to automate my Macbook setup</title>
+      <link>https://daemonza.github.io/2017/03/06/using-ansible-to-automate-my-macbook-setup/</link>
+      <pubDate>Mon, 06 Mar 2017 13:06:32 +0100</pubDate>
+      <author>werner.gillmer@gmail.com (Werner Gillmer)</author>
+      <guid>https://daemonza.github.io/2017/03/06/using-ansible-to-automate-my-macbook-setup/</guid>
+      <description>
+
+&lt;h4 id=&#34;introduction&#34;&gt;Introduction&lt;/h4&gt;
+
+&lt;p&gt;I am soon going to get a new Macbook, and have been thinking about how to setup it quickly and easily.
+There is &lt;a href=&#34;https://github.com/boxen/boxen&#34;&gt;Boxen&lt;/a&gt;, and while it is awesome at what is does, it does
+too much for my needs. A quick Google shows there is plenty of other tools and solutions out there
+like &lt;code&gt;Boxen&lt;/code&gt; that automate a Mac setup. While they all looked mostly good, I want something a little more
+personal, so, let&amp;rsquo;s reinvent the wheel :D&lt;/p&gt;
+
+&lt;h4 id=&#34;configuration-management&#34;&gt;Configuration management&lt;/h4&gt;
+
+&lt;p&gt;I noticed that &lt;code&gt;Boxen&lt;/code&gt; is build on top of &lt;a href=&#34;https://puppet.com/&#34;&gt;Puppet&lt;/a&gt;, nice, however I prefer
+&lt;a href=&#34;https://www.ansible.com/&#34;&gt;Ansible&lt;/a&gt;, which led me the idea of using Ansible to automate my Macbook setup.&lt;/p&gt;
+
+&lt;p&gt;First step, how to install applications. I normally use &lt;a href=&#34;https://brew.sh/&#34;&gt;Homebrew&lt;/a&gt; as much as possible to
+install command line utilities. But normally install GUI apps either through the Mac store or from the
+developer&amp;rsquo;s website. Which will not be so nice to try and maintain through &lt;code&gt;Ansible&lt;/code&gt;. Looking through brew
+and &lt;a href=&#34;https://caskroom.github.io/&#34;&gt;Cask&lt;/a&gt; however I realized that I will be able to install almost everything
+I want using just brew and git. awesome!&lt;/p&gt;
+
+&lt;p&gt;Browsing through the Ansible module&amp;rsquo;s, I saw that Homebrew is &lt;a href=&#34;http://docs.ansible.com/ansible/homebrew_module.html&#34;&gt;supported&lt;/a&gt; :D
+So no need to use &lt;code&gt;Ansible&lt;/code&gt; command module to call brew! And in normal &lt;code&gt;Ansible&lt;/code&gt; fashion, it&amp;rsquo;s incredibly easy
+to use.&lt;/p&gt;
+
+&lt;p&gt;Example snippet of how to install vim using the homebrew module :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;- name: install vim 
+  homebrew:
+    name: vim 
+    state: latest
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;and using cask&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;- name: install chrome 
+  homebrew_cask:
+    name: google-chrome 
+    state: installed 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;How simple is that! So now we have all the building blocks to automate the setup of my macbook.&lt;/p&gt;
+
+&lt;h4 id=&#34;setupmac&#34;&gt;Setupmac&lt;/h4&gt;
+
+&lt;p&gt;So this is what I build :
+&lt;a href=&#34;https://github.com/daemonza/setupmac&#34;&gt;https://github.com/daemonza/setupmac&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Yes, I know, super original name :D&lt;/p&gt;
+
+&lt;p&gt;What is does is, it bootstraps getting &lt;code&gt;Ansible&lt;/code&gt; by installing &lt;a href=&#34;https://pypi.python.org/pypi/pip&#34;&gt;pip&lt;/a&gt; with &lt;code&gt;easy_install&lt;/code&gt; which in
+turns then install &lt;code&gt;Ansible&lt;/code&gt;. From there, the &lt;code&gt;Ansible&lt;/code&gt; playbook runs a &lt;code&gt;setup&lt;/code&gt; role against localhost that installs &lt;code&gt;homebrew&lt;/code&gt; and update it.
+It then installs the applications listed &lt;a href=&#34;https://raw.githubusercontent.com/daemonza/setupmac/master/roles/setup/vars/main.yml&#34;&gt;here&lt;/a&gt;.
+Unfortunately two of the applications is not available through Homebrew, so I download those to my &lt;code&gt;$HOME/Downloads&lt;/code&gt; directory. Luckily
+this is simple to do with &lt;code&gt;Ansible&lt;/code&gt; :&lt;/p&gt;
+
+&lt;p&gt;Example snippet of how to download a app(&lt;a href=&#34;http://zwift.com/&#34;&gt;Zwift&lt;/a&gt;) to $HOME/Downloads :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;   general:
+     local_home: &amp;quot;{{ lookup(&#39;env&#39;,&#39;HOME&#39;) }}&amp;quot;
+
+   zwift:
+     name: Zwift
+     url: http://cdn.zwift.com/app/ZwiftOSX.dmg
+     dest: &amp;quot;{{general.local_home}}/Downloads/ZwiftOSX.dmg&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The &lt;code&gt;Ansible&lt;/code&gt; role then starts the configuration, which involves getting &lt;a href=&#34;http://ohmyz.sh/&#34;&gt;oh-my-zsh&lt;/a&gt; with the &lt;a href=&#34;https://draculatheme.com/&#34;&gt;theme&lt;/a&gt;
+that I use, and &lt;a href=&#34;http://spacemacs.org/&#34;&gt;spacemacs&lt;/a&gt; from git, clones my &lt;a href=&#34;https://github.com/daemonza/dotfiles&#34;&gt;dotfiles&lt;/a&gt; from my github repository,
+and copies the respective files to the correct locations.&lt;/p&gt;
+
+&lt;p&gt;To make it as easy as possible to install, you can execute the start script locally on your mac with curl as follows :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;curl -s https://raw.githubusercontent.com/daemonza/setupmac/master/start.sh | /bin/bash
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The &lt;a href=&#34;https://raw.githubusercontent.com/daemonza/setupmac/master/start.sh&#34;&gt;script&lt;/a&gt; that bootstraps &lt;code&gt;ansible&lt;/code&gt;&lt;/p&gt;
+
+&lt;h4 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h4&gt;
+
+&lt;p&gt;Ansible is awesome! It provides just the right level of power vs complexity to quickly enable you
+to build useful automation. While &lt;code&gt;setupmac&lt;/code&gt; is really setup for how I like my Macbook, I hope it will be useful
+to someone who wants to do something similar.&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

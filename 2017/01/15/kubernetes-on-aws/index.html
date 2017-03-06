@@ -14,7 +14,7 @@
 <meta name="description" content="">
 <meta name="keywords" content="">
 <meta name="author" content="">
-<meta name="generator" content="Hugo 0.15" />
+<meta name="generator" content="Hugo 0.19" />
 
   <meta property="og:title" content="Kubernetes on AWS" />
 <meta property="og:description" content="" />
@@ -132,13 +132,13 @@
 <ul>
 <li>
 <ul>
-<li><a href="#installing-kops:3ac6298d606a83e1b55f117f57e6507d">Installing kops</a></li>
-<li><a href="#setup:3ac6298d606a83e1b55f117f57e6507d">Setup</a></li>
-<li><a href="#create-cluster:3ac6298d606a83e1b55f117f57e6507d">Create cluster</a></li>
-<li><a href="#list-clusters:3ac6298d606a83e1b55f117f57e6507d">List clusters</a></li>
-<li><a href="#modify-cluster:3ac6298d606a83e1b55f117f57e6507d">Modify cluster</a></li>
-<li><a href="#remove-cluster:3ac6298d606a83e1b55f117f57e6507d">Remove cluster</a></li>
-<li><a href="#conclusion:3ac6298d606a83e1b55f117f57e6507d">Conclusion</a></li>
+<li><a href="#installing-kops">Installing kops</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#create-cluster">Create cluster</a></li>
+<li><a href="#list-clusters">List clusters</a></li>
+<li><a href="#modify-cluster">Modify cluster</a></li>
+<li><a href="#remove-cluster">Remove cluster</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
 </ul></li>
 </ul></li>
 </ul></li>
@@ -182,7 +182,7 @@ better for me. Also there is something to be said for using a tool developed and
 <p>There is also kubeadm (<a href="https://kubernetes.io/docs/getting-started-guides/kubeadm/">https://kubernetes.io/docs/getting-started-guides/kubeadm/</a>), however it&rsquo;s currently in alpha. Have not
 used it myself before, but it&rsquo;s definitely something I am keeping a eye on.</p>
 
-<h4 id="installing-kops:3ac6298d606a83e1b55f117f57e6507d">Installing kops</h4>
+<h4 id="installing-kops">Installing kops</h4>
 
 <p>I use macOS so from here all instructions will be based on the assumption it&rsquo;s being executed on macOS. It should
 however work on Linux or at least be easily adapted to work on Linux.</p>
@@ -208,7 +208,7 @@ make
 <pre><code>kops version
 </code></pre>
 
-<h4 id="setup:3ac6298d606a83e1b55f117f57e6507d">Setup</h4>
+<h4 id="setup">Setup</h4>
 
 <p>It&rsquo;s strictly not needed to install awscli, as you can do everything needed for setting up a kops created aws kubernetes
 cluster through the Amazon web console. However, I find it useful and prefer it to the console.</p>
@@ -252,7 +252,7 @@ EXPORT KUBECONFIG=&quot;~/stacks/dev.daemonza.io/kubeconfig&quot;
 ssh-keygen -t rsa # save the keys in the credentials directory
 </code></pre>
 
-<h4 id="create-cluster:3ac6298d606a83e1b55f117f57e6507d">Create cluster</h4>
+<h4 id="create-cluster">Create cluster</h4>
 
 <p>First thing is to decided on is the DNS setup for your cluster. It&rsquo;s standard practice to use sub domains
 to identify a cluster. E.g. dev.daemonza., qa.daemonza.io, prod.daemonza.io for the develop, QA and
@@ -418,7 +418,7 @@ the kubectl command line tool probably 99% of the time, it&rsquo;s nice to every
 <p>You can now run kubectl proxy and access your cluster at
 <a href="http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all">http://127.0.0.1:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard/#/deployment?namespace=_all</a></p>
 
-<h4 id="list-clusters:3ac6298d606a83e1b55f117f57e6507d">List clusters</h4>
+<h4 id="list-clusters">List clusters</h4>
 
 <p>Kops makes it easy to manage multiple stacks. To get a list of all your current stacks
 run the following :</p>
@@ -455,7 +455,7 @@ master-eu-west-1a	Master	t2.medium	1	1	eu-west-1a
 nodes			Node	m3.xlarge	2	2	eu-west-1a,eu-west-1b
 </code></pre>
 
-<h4 id="modify-cluster:3ac6298d606a83e1b55f117f57e6507d">Modify cluster</h4>
+<h4 id="modify-cluster">Modify cluster</h4>
 
 <p>Kops makes it easy, and relative safe to modify a Kubernetes cluster with it&rsquo;s rolling updates. Continuing from
 our example above in the  cluster listing. Let&rsquo;s modify our cluster to have three m3.xlarge worker nodes instead
@@ -526,7 +526,7 @@ kops rolling-update cluster --yes
 
 <p>Sit back and wait for your cluster changes to take affect.</p>
 
-<h4 id="remove-cluster:3ac6298d606a83e1b55f117f57e6507d">Remove cluster</h4>
+<h4 id="remove-cluster">Remove cluster</h4>
 
 <p>Now to remove the cluster that you just created run</p>
 
@@ -551,7 +551,7 @@ Must specify --yes to delete
 <p>Then if you are a 100% sure you want to remove the cluster, NOTE, there is no coming back
 from this, add &ndash;yes to the the command.</p>
 
-<h4 id="conclusion:3ac6298d606a83e1b55f117f57e6507d">Conclusion</h4>
+<h4 id="conclusion">Conclusion</h4>
 
 <p>That&rsquo;s it folks! Kops is a powerful tool to work with Kubernetes and we have barely scratch the
 surface in this article. For more information, of what else you can do with Kops head over to
@@ -560,6 +560,15 @@ surface in this article. For more information, of what else you can do with Kops
 	
 			
 
+			
+				<div class="tags-list">
+					<span class="dark-red">Tags</span><span class="decorative-marker">//</span>
+					
+	                <a class="post-tag post-tag-kubernetes" href="https://daemonza.github.io/tags/kubernetes">kubernetes</a>,
+	                
+	                <a class="post-tag post-tag-amazon" href="https://daemonza.github.io/tags/amazon">amazon</a>,
+	                
+				</div>
 			
 
 			
@@ -573,6 +582,11 @@ surface in this article. For more information, of what else you can do with Kops
 		            
 
 					
+					<div class="paging-older">
+						<span class="dark-red">Older</span><span class="decorative-marker">//</span>
+			            <a class="paging-link" href="/"></a>
+		            </div>
+		            
 	            </div>
             
           </section>
