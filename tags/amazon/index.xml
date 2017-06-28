@@ -249,7 +249,7 @@ being created. It takes roughly around 10 mins or so for your cluster to become 
 
 &lt;p&gt;You can confirm the cluster is there by running&lt;/p&gt;
 
-&lt;pre&gt;&lt;code&gt;kubectl get pods
+&lt;pre&gt;&lt;code&gt;kubectl get nodes
 &lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;This will take a while to work, and it will first start working on and off, as in you would get the nodes, or
